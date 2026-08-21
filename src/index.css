@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .font-serif-romantic {
+    font-family: 'Playfair Display', serif;
+  }
+  .font-handwriting {
+    font-family: 'Dancing Script', cursive;
+  }
+  .font-casual {
+    font-family: 'Caveat', cursive;
+  }
+  .font-sacramento {
+    font-family: 'Sacramento', cursive;
+  }
+  .font-sans-clean {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+}
+
+@keyframes flameFlicker {
+  0%, 100% {
+    transform: scale(1) rotate(-1deg);
+    opacity: 0.95;
+    filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.9));
+  }
+  25% {
+    transform: scale(1.08, 0.92) rotate(2deg);
+    opacity: 1;
+    filter: drop-shadow(0 0 14px rgba(245, 158, 11, 1));
+  }
+  50% {
+    transform: scale(0.95, 1.05) rotate(-2deg);
+    opacity: 0.9;
+    filter: drop-shadow(0 0 10px rgba(251, 146, 60, 0.85));
+  }
+  75% {
+    transform: scale(1.04, 0.97) rotate(1deg);
+    opacity: 1;
+    filter: drop-shadow(0 0 12px rgba(251, 191, 36, 0.95));
+  }
+}
+
+@keyframes gentleFloat {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(1deg);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(244, 63, 94, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(244, 63, 94, 0.7);
+  }
+}
+
+.animate-flame {
+  animation: flameFlicker 1.2s infinite ease-in-out;
+  transform-origin: bottom center;
+}
+
+.animate-float {
+  animation: gentleFloat 4s infinite ease-in-out;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2.5s infinite ease-in-out;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(254, 226, 226, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(244, 63, 94, 0.4);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(244, 63, 94, 0.7);
+}
+
