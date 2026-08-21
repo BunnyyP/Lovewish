@@ -5,6 +5,7 @@ import { BirthdayConfig } from '../types';
 import { sound } from '../utils/audio';
 import { fireHeartConfetti, fireFireworks } from '../utils/confetti';
 import { generateShareUrl } from '../utils/storage';
+import { getThemeStyles } from '../utils/themeStyles';
 
 interface GiftBoxRevealProps {
   config: BirthdayConfig;
@@ -12,6 +13,7 @@ interface GiftBoxRevealProps {
 }
 
 export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) {
+  const themeStyles = getThemeStyles(config.theme);
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -35,14 +37,16 @@ export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) 
     <section id="gift-reveal" className="py-20 px-4 max-w-4xl mx-auto text-center relative">
       {/* Header */}
       <div className="mb-12">
-        <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-200 text-xs font-semibold uppercase tracking-wider mb-2">
-          <Gift className="w-3.5 h-3.5 text-rose-600" />
+        <div className={`inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full ${themeStyles.badgeBg} border ${themeStyles.badgeBorder} ${themeStyles.badgeText} text-xs font-semibold uppercase tracking-wider mb-2`}>
+          <Gift className="w-3.5 h-3.5" />
           <span>The Grand Finale</span>
         </div>
-        <h2 className="font-serif-romantic text-3xl sm:text-5xl font-bold text-stone-900 dark:text-stone-100">
-          One Last Special Surprise For You 🎁
+        <h2 className="font-serif-romantic text-3xl sm:text-5xl font-bold">
+          <span className={`bg-clip-text text-transparent bg-gradient-to-r ${themeStyles.sectionHeaderGradient} drop-shadow-sm`}>
+            One Last Special Surprise For You 🎁
+          </span>
         </h2>
-        <p className="text-stone-600 dark:text-stone-300 text-sm sm:text-base font-sans-clean mt-2 max-w-xl mx-auto">
+        <p className={`text-sm sm:text-base font-sans-clean mt-2 max-w-xl mx-auto font-medium ${themeStyles.sectionSubtitleColor}`}>
           Tap the gift box below to unwrap your final birthday treasure and lifetime promise.
         </p>
       </div>
@@ -91,9 +95,9 @@ export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) 
             {/* Button below */}
             <button
               type="button"
-              className="mt-8 inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-rose-600 to-pink-600 text-white font-semibold text-sm shadow-lg hover:scale-105 active:scale-95 transition-all"
+              className={`mt-8 inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r ${themeStyles.accentBtnGradient} text-white font-semibold text-sm shadow-lg hover:scale-105 active:scale-95 transition-all`}
             >
-              <Sparkles className="w-4 h-4 text-amber-200" />
+              <Sparkles className="w-4 h-4 text-amber-200 star-sparkle-anim" />
               <span>Unwrap Birthday Gift</span>
             </button>
           </motion.div>
@@ -103,13 +107,13 @@ export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) 
             initial={{ scale: 0.7, opacity: 0, y: 30 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             transition={{ type: 'spring', damping: 14 }}
-            className="w-full bg-[#fffefc] dark:bg-stone-900 rounded-3xl p-6 sm:p-10 border-2 border-amber-300/80 dark:border-stone-700 shadow-[0_25px_60px_rgba(244,63,94,0.15)] text-left relative overflow-hidden"
+            className={`w-full ${themeStyles.cardBg} rounded-3xl p-6 sm:p-10 border-2 ${themeStyles.cardBorder} shadow-2xl text-left relative overflow-hidden`}
           >
             {/* Top Crown Ribbon */}
-            <div className="flex items-center justify-between border-b border-rose-100 dark:border-stone-800 pb-4 mb-6">
+            <div className={`flex items-center justify-between border-b ${themeStyles.isDark ? 'border-stone-800' : 'border-rose-100'} pb-4 mb-6`}>
               <div className="flex items-center gap-2">
-                <Award className="w-6 h-6 text-amber-500" />
-                <span className="text-xs font-mono uppercase tracking-widest text-rose-800 dark:text-rose-300 font-bold">
+                <Award className="w-6 h-6 text-amber-400" />
+                <span className={`text-xs font-mono uppercase tracking-widest font-bold ${themeStyles.badgeText}`}>
                   Official Lifetime Certificate of Love
                 </span>
               </div>
@@ -117,46 +121,46 @@ export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) 
             </div>
 
             {/* Finale Title */}
-            <h3 className="font-serif-romantic text-2xl sm:text-3xl font-bold text-stone-900 dark:text-stone-100 mb-4">
+            <h3 className={`font-serif-romantic text-2xl sm:text-3xl font-bold mb-4 ${themeStyles.isDark ? 'text-stone-100' : 'text-stone-900'}`}>
               {config.finaleMessageTitle}
             </h3>
 
             {/* Body */}
-            <p className="font-casual text-lg sm:text-xl text-stone-700 dark:text-stone-300 leading-relaxed mb-6">
+            <p className={`font-casual text-lg sm:text-xl leading-relaxed mb-6 ${themeStyles.isDark ? 'text-stone-300' : 'text-stone-700'}`}>
               {config.finaleMessageBody}
             </p>
 
             {/* Highlighted Lifetime Promise */}
-            <div className="p-5 rounded-2xl bg-gradient-to-br from-rose-50 to-pink-50 dark:from-stone-800/80 dark:to-stone-800/40 border border-rose-200/80 dark:border-stone-700 mb-8">
-              <span className="text-[11px] uppercase tracking-wider font-bold text-rose-700 dark:text-rose-400 block mb-1">
+            <div className={`p-5 rounded-2xl ${themeStyles.cardHighlightBg} border ${themeStyles.cardBorder} mb-8`}>
+              <span className={`text-[11px] uppercase tracking-wider font-bold block mb-1 ${themeStyles.isDark ? 'text-rose-400' : 'text-rose-700'}`}>
                 My Birthday Vow To You:
               </span>
-              <p className="font-serif-romantic italic text-lg sm:text-xl text-rose-950 dark:text-rose-100 font-semibold leading-relaxed">
+              <p className={`font-serif-romantic italic text-lg sm:text-xl font-semibold leading-relaxed font-glow-gold ${themeStyles.isDark ? 'text-stone-100' : 'text-stone-900'}`}>
                 "{config.finalePromise}"
               </p>
             </div>
 
             {/* Signatures */}
-            <div className="flex items-end justify-between border-t border-rose-100 dark:border-stone-800 pt-6">
+            <div className={`flex items-end justify-between border-t ${themeStyles.isDark ? 'border-stone-800' : 'border-rose-100'} pt-6`}>
               <div>
                 <span className="text-[10px] text-stone-400 uppercase tracking-widest block">Recipient</span>
-                <span className="font-handwriting text-2xl text-stone-800 dark:text-stone-200 font-bold">
+                <span className={`font-handwriting text-2xl font-bold ${themeStyles.isDark ? 'text-stone-100' : 'text-stone-800'}`}>
                   {config.recipientName}
                 </span>
               </div>
               <div className="text-right">
                 <span className="text-[10px] text-stone-400 uppercase tracking-widest block">With All My Soul</span>
-                <span className="font-handwriting text-3xl text-rose-700 dark:text-rose-400 font-bold">
+                <span className="font-handwriting text-3xl font-bold text-rose-500">
                   {config.senderName} ❤️
                 </span>
               </div>
             </div>
 
             {/* Bottom Actions */}
-            <div className="mt-8 pt-6 border-t border-stone-100 dark:border-stone-800 flex flex-wrap items-center justify-center gap-3">
+            <div className={`mt-8 pt-6 border-t ${themeStyles.isDark ? 'border-stone-800' : 'border-stone-100'} flex flex-wrap items-center justify-center gap-3`}>
               <button
                 onClick={handleShare}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-semibold shadow-md transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r ${themeStyles.accentBtnGradient} text-white text-xs sm:text-sm font-semibold shadow-md transition-all hover:scale-105 active:scale-95 cursor-pointer`}
               >
                 {copied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
                 <span>{copied ? 'Surprise Link Copied!' : 'Send This Surprise to My Love'}</span>
@@ -164,7 +168,7 @@ export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) 
 
               <button
                 onClick={() => setIsOpen(false)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 text-xs sm:text-sm font-medium transition-colors cursor-pointer"
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-full ${themeStyles.cardHighlightBg} border ${themeStyles.cardBorder} ${themeStyles.isDark ? 'text-stone-200' : 'text-stone-700'} text-xs sm:text-sm font-medium transition-colors cursor-pointer`}
               >
                 <span>Wrap Box Again</span>
               </button>

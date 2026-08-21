@@ -1,15 +1,18 @@
 import { useState, useEffect, useRef, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Mic, MicOff, RefreshCw, Heart, Check, Flame } from 'lucide-react';
+import { Sparkles, Mic, MicOff, RefreshCw, Heart, Check, Flame, Play, Film } from 'lucide-react';
 import { BirthdayConfig } from '../types';
 import { sound } from '../utils/audio';
 import { fireHeartConfetti, fireFireworks } from '../utils/confetti';
+import { CelebrationVideoModal } from './CelebrationVideoModal';
+import { getThemeStyles } from '../utils/themeStyles';
 
 interface InteractiveCakeProps {
   config: BirthdayConfig;
 }
 
 export function InteractiveCake({ config }: InteractiveCakeProps) {
+  const themeStyles = getThemeStyles(config.theme);
   const [candles, setCandles] = useState([
     { id: 1, lit: true, color: 'bg-rose-400', height: 48 },
     { id: 2, lit: true, color: 'bg-amber-400', height: 56 },
@@ -22,6 +25,7 @@ export function InteractiveCake({ config }: InteractiveCakeProps) {
   const [wishSaved, setWishSaved] = useState(false);
   const [allBlownOut, setAllBlownOut] = useState(false);
   const [isListeningMic, setIsListeningMic] = useState(false);
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -34,8 +38,16 @@ export function InteractiveCake({ config }: InteractiveCakeProps) {
       sound.playCelebrationPop();
       fireHeartConfetti();
       setTimeout(() => fireFireworks(), 400);
+
+      // Trigger Celebration Video Modal when candles are blown out!
+      const autoplayVideo = config.celebrationVideoAutoplay !== false;
+      if (autoplayVideo) {
+        setTimeout(() => {
+          setIsVideoModalOpen(true);
+        }, 700);
+      }
     }
-  }, [candles, allBlownOut]);
+  }, [candles, allBlownOut, config.celebrationVideoAutoplay]);
 
   // Handle single candle tap
   const toggleCandle = (id: number) => {
@@ -150,19 +162,22 @@ export function InteractiveCake({ config }: InteractiveCakeProps) {
     <section id="birthday-cake" className="py-16 px-4 max-w-4xl mx-auto text-center relative">
       {/* Section Header */}
       <div className="mb-10">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-200 text-xs font-semibold uppercase tracking-wider mb-2">
+        <div className={`inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full ${themeStyles.badgeBg} border ${themeStyles.badgeBorder} ${themeStyles.badgeText} text-xs font-semibold uppercase tracking-wider mb-2`}>
+          <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-300 star-sparkle-anim" />
           <span>Make A Wish</span>
         </div>
-        <h2 className="font-serif-romantic text-3xl sm:text-5xl font-bold text-stone-900 dark:text-stone-100">
-          Blow Out The Candles 🎂
+        <h2 className="font-serif-romantic text-3xl sm:text-5xl font-bold">
+          <span className={`bg-clip-text text-transparent bg-gradient-to-r ${themeStyles.sectionHeaderGradient} drop-shadow-sm`}>
+            Blow Out The Candles 🎂
+          </span>
         </h2>
-        <p className="text-stone-600 dark:text-stone-300 text-sm sm:text-base font-sans-clean mt-2 max-w-xl mx-auto">
+        <p className={`text-sm sm:text-base font-sans-clean mt-2 max-w-xl mx-auto font-medium ${themeStyles.sectionSubtitleColor}`}>
           Tap each candle or make your heartfelt wish below to blow them out and start the year with endless blessings.
         </p>
       </div>
 
       {/* Interactive Birthday Cake Container */}
-      <div className="relative max-w-lg mx-auto bg-gradient-to-b from-rose-50/60 via-pink-50/30 to-amber-50/60 dark:from-stone-900 dark:via-stone-900 dark:to-stone-850 rounded-3xl p-6 sm:p-10 border border-rose-200/80 dark:border-stone-800 shadow-[0_20px_60px_rgba(244,63,94,0.12)]">
+      <div className={`relative max-w-lg mx-auto ${themeStyles.cardBg} rounded-3xl p-6 sm:p-10 border ${themeStyles.cardBorder} shadow-2xl`}>
         {/* Glow ambient background when candles lit */}
         {!allBlownOut && (
           <div className="absolute top-12 left-1/2 -translate-x-1/2 w-48 h-32 bg-amber-400/25 blur-3xl rounded-full pointer-events-none" />
@@ -232,15 +247,15 @@ export function InteractiveCake({ config }: InteractiveCakeProps) {
               <span className="text-sm">✨</span>
               <span className="text-sm">🍓</span>
             </div>
-            <div className="font-handwriting text-rose-800 font-bold text-xl sm:text-2xl mt-4">
+            <div className="font-handwriting text-rose-900 font-bold text-xl sm:text-2xl mt-4 font-shimmer-sparkle">
               Happy Birthday!
             </div>
           </div>
 
           {/* Middle Cake Tier */}
           <div className="w-64 sm:w-76 h-22 bg-gradient-to-r from-[#ffe4e6] via-[#fecdd3] to-[#ffe4e6] rounded-t-xl shadow-md border-t-4 border-rose-400 relative flex flex-col items-center justify-center">
-            <div className="flex gap-4 text-xs font-serif-romantic text-rose-900 font-bold">
-              <span>★ {config.recipientName} ★</span>
+            <div className="flex gap-4 text-sm font-serif-romantic text-rose-950 font-bold tracking-wide">
+              <span className="font-glow-gold">★ {config.recipientName} ★</span>
             </div>
             {/* White Pearls / Cherries */}
             <div className="absolute bottom-2 flex gap-3 text-rose-500 text-xs">
@@ -265,53 +280,64 @@ export function InteractiveCake({ config }: InteractiveCakeProps) {
               initial={{ scale: 0.8, opacity: 0, y: 15 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               transition={{ type: 'spring', damping: 15 }}
-              className="mt-8 p-5 bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 rounded-2xl text-white shadow-xl text-center"
+              className={`mt-8 p-5 bg-gradient-to-r ${themeStyles.accentBtnGradient} rounded-2xl text-white shadow-xl text-center`}
             >
               <div className="flex items-center justify-center gap-1.5 text-amber-200 text-sm font-semibold mb-1">
-                <Sparkles className="w-4 h-4" />
-                <span>ALL WISHES GRANTED!</span>
-                <Sparkles className="w-4 h-4" />
+                <Sparkles className="w-4 h-4 star-sparkle-anim" />
+                <span className="tracking-wider">ALL WISHES GRANTED!</span>
+                <Sparkles className="w-4 h-4 star-sparkle-anim" />
               </div>
-              <h3 className="font-serif-romantic text-2xl sm:text-3xl font-bold">
+              <h3 className="font-serif-romantic text-2xl sm:text-3xl font-bold font-glow-gold">
                 May all your birthday dreams come true, my love! 🎉
               </h3>
-              <p className="text-rose-100 text-xs sm:text-sm mt-1">
+              <p className="text-white/90 text-xs sm:text-sm mt-1 font-medium">
                 Every candle extinguished is another year of happiness, love, and memories together.
               </p>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Controls (Blow All, Relight, Mic Blow) */}
+        {/* Controls (Blow All, Relight, Mic Blow, Watch Video) */}
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           {!allBlownOut ? (
             <button
               id="blow-candles-button"
               onClick={blowAllCandles}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white text-xs sm:text-sm font-medium shadow-md transition-all hover:scale-105 active:scale-95 cursor-pointer"
+              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r ${themeStyles.accentBtnGradient} text-white text-xs sm:text-sm font-semibold shadow-md transition-all hover:scale-105 active:scale-95 cursor-pointer`}
             >
               <Flame className="w-4 h-4" />
               <span>Blow All Candles</span>
             </button>
           ) : (
-            <button
-              id="relight-candles-button"
-              onClick={relightCandles}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-stone-800 hover:bg-stone-700 text-white text-xs sm:text-sm font-medium shadow-md transition-all hover:scale-105 active:scale-95 cursor-pointer"
-            >
-              <RefreshCw className="w-4 h-4" />
-              <span>Relight Candles</span>
-            </button>
+            <>
+              <button
+                id="relight-candles-button"
+                onClick={relightCandles}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-stone-800 hover:bg-stone-700 text-white text-xs sm:text-sm font-semibold shadow-md transition-all hover:scale-105 active:scale-95 cursor-pointer"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>Relight Candles</span>
+              </button>
+
+              <button
+                id="open-video-modal-button"
+                onClick={() => setIsVideoModalOpen(true)}
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r ${themeStyles.accentBtnGradient} text-white text-xs sm:text-sm font-semibold shadow-lg hover:scale-105 active:scale-95 transition-all cursor-pointer animate-pulse`}
+              >
+                <Film className="w-4 h-4 text-amber-200" />
+                <span>Watch Birthday Video 🐿️🎬</span>
+              </button>
+            </>
           )}
 
           <button
             id="mic-blow-detect-button"
             onClick={toggleMicBlowDetection}
             title="Blow into your microphone to extinguish candles!"
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-xs sm:text-sm font-medium border transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-xs sm:text-sm font-semibold border transition-all cursor-pointer ${
               isListeningMic
                 ? 'bg-rose-500 text-white border-rose-400 animate-pulse'
-                : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 border-stone-300 dark:border-stone-700 hover:bg-rose-50'
+                : `${themeStyles.cardHighlightBg} ${themeStyles.isDark ? 'text-stone-100' : 'text-stone-800'} ${themeStyles.cardBorder} hover:scale-105`
             }`}
           >
             {isListeningMic ? <Mic className="w-4 h-4 animate-bounce" /> : <MicOff className="w-4 h-4" />}
@@ -320,8 +346,8 @@ export function InteractiveCake({ config }: InteractiveCakeProps) {
         </div>
 
         {/* Secret Birthday Wish Input Form */}
-        <div className="mt-8 pt-6 border-t border-rose-200/60 dark:border-stone-800 text-left">
-          <div className="text-xs uppercase tracking-wider font-bold text-rose-800 dark:text-rose-300 mb-2 flex items-center gap-1.5">
+        <div className="mt-8 pt-6 border-t border-stone-200/60 dark:border-stone-700/60 text-left">
+          <div className={`text-xs uppercase tracking-wider font-bold mb-2 flex items-center gap-1.5 ${themeStyles.isDark ? 'text-rose-300' : 'text-rose-800'}`}>
             <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
             <span>Secret Birthday Wish (Private & Cherished)</span>
           </div>
@@ -333,17 +359,17 @@ export function InteractiveCake({ config }: InteractiveCakeProps) {
                 value={wishText}
                 onChange={(e) => setWishText(e.target.value)}
                 placeholder={config.secretWishPrompt || "Type your secret wish here before blowing..."}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-white dark:bg-stone-800 border border-rose-200 dark:border-stone-700 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 text-stone-800 dark:text-stone-100 placeholder-stone-400"
+                className={`flex-1 px-4 py-2.5 rounded-xl ${themeStyles.cardHighlightBg} border ${themeStyles.cardBorder} text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 ${themeStyles.isDark ? 'text-stone-100 placeholder-stone-400' : 'text-stone-900 placeholder-stone-500'}`}
               />
               <button
                 type="submit"
-                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-semibold transition-all cursor-pointer shrink-0"
+                className={`px-5 py-2.5 rounded-xl bg-gradient-to-r ${themeStyles.accentBtnGradient} text-white text-xs sm:text-sm font-semibold transition-all cursor-pointer shrink-0 hover:scale-105 shadow-md`}
               >
                 Seal Wish ✨
               </button>
             </form>
           ) : (
-            <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-2.5 text-emerald-800 dark:text-emerald-200 text-xs sm:text-sm">
+            <div className={`p-3.5 rounded-xl ${themeStyles.cardHighlightBg} border ${themeStyles.cardBorder} flex items-center gap-2.5 text-xs sm:text-sm ${themeStyles.isDark ? 'text-emerald-300' : 'text-emerald-800'}`}>
               <Check className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>
                 Your secret wish: <strong className="italic">"{wishText}"</strong> has been safely stored in the universe's stars! 🌟
@@ -352,6 +378,14 @@ export function InteractiveCake({ config }: InteractiveCakeProps) {
           )}
         </div>
       </div>
+
+      {/* Celebration Video Modal */}
+      <CelebrationVideoModal
+        isOpen={isVideoModalOpen}
+        onClose={() => setIsVideoModalOpen(false)}
+        config={config}
+        onRelightCandles={relightCandles}
+      />
     </section>
   );
 }

@@ -1,8 +1,9 @@
 import { useState, MouseEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Camera, RotateCw, MapPin, Calendar, Heart, ZoomIn, X } from 'lucide-react';
+import { Camera, RotateCw, MapPin, Calendar, Heart, ZoomIn, X, Sparkles } from 'lucide-react';
 import { BirthdayConfig, PolaroidPhoto } from '../types';
 import { sound } from '../utils/audio';
+import { getThemeStyles } from '../utils/themeStyles';
 
 interface MemoryPolaroidsProps {
   config: BirthdayConfig;
@@ -10,6 +11,7 @@ interface MemoryPolaroidsProps {
 }
 
 export function MemoryPolaroids({ config, onOpenCustomizer }: MemoryPolaroidsProps) {
+  const themeStyles = getThemeStyles(config.theme);
   const [flippedIds, setFlippedIds] = useState<Record<string, boolean>>({});
   const [selectedPhoto, setSelectedPhoto] = useState<PolaroidPhoto | null>(null);
 
@@ -34,15 +36,17 @@ export function MemoryPolaroids({ config, onOpenCustomizer }: MemoryPolaroidsPro
     <section id="photo-memories" className="py-16 px-4 max-w-6xl mx-auto text-center relative">
       {/* Header */}
       <div className="mb-12">
-        <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-200 text-xs font-semibold uppercase tracking-wider mb-2">
+        <div className={`inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full ${themeStyles.badgeBg} border ${themeStyles.badgeBorder} ${themeStyles.badgeText} text-xs font-semibold uppercase tracking-wider mb-2`}>
           <Camera className="w-3.5 h-3.5" />
           <span>Memory Clothesline</span>
         </div>
-        <h2 className="font-serif-romantic text-3xl sm:text-5xl font-bold text-stone-900 dark:text-stone-100">
-          Our Favorite Moments Together 📸
+        <h2 className="font-serif-romantic text-3xl sm:text-5xl font-bold">
+          <span className={`bg-clip-text text-transparent bg-gradient-to-r ${themeStyles.sectionHeaderGradient} drop-shadow-sm`}>
+            Our Favorite Moments Together 📸
+          </span>
         </h2>
-        <p className="text-stone-600 dark:text-stone-300 text-sm sm:text-base font-sans-clean mt-2 max-w-xl mx-auto">
-          Every picture holds a thousand memories. Click a polaroid to zoom in, or tap the <span className="font-semibold text-rose-600">Flip button</span> to read the secret handwritten note on the back!
+        <p className={`text-sm sm:text-base font-sans-clean mt-2 max-w-xl mx-auto font-medium ${themeStyles.sectionSubtitleColor}`}>
+          Every picture holds a thousand memories. Click a polaroid to zoom in, or tap the <span className="font-semibold text-rose-500">Flip button</span> to read the secret handwritten note on the back!
         </p>
       </div>
 
@@ -82,7 +86,7 @@ export function MemoryPolaroids({ config, onOpenCustomizer }: MemoryPolaroidsPro
               >
                 {/* FRONT OF POLAROID */}
                 <div
-                  className="absolute inset-0 bg-white dark:bg-stone-800 p-4 pb-6 rounded-lg shadow-[0_10px_25px_rgba(0,0,0,0.12)] border border-stone-200 dark:border-stone-700 flex flex-col justify-between select-none"
+                  className="absolute inset-0 bg-white dark:bg-stone-850 p-4 pb-6 rounded-lg shadow-[0_10px_25px_rgba(0,0,0,0.12)] border border-stone-200 dark:border-stone-700 flex flex-col justify-between select-none"
                   style={{
                     backfaceVisibility: 'hidden',
                   }}
@@ -103,7 +107,7 @@ export function MemoryPolaroids({ config, onOpenCustomizer }: MemoryPolaroidsPro
 
                   {/* Handwritten Caption Area */}
                   <div className="pt-3 text-left flex flex-col justify-between flex-1">
-                    <p className="font-casual text-lg sm:text-xl text-stone-800 dark:text-stone-100 font-bold leading-tight line-clamp-2">
+                    <p className="font-casual text-lg sm:text-xl text-stone-850 dark:text-stone-100 font-bold leading-tight line-clamp-2">
                       {photo.caption}
                     </p>
 
@@ -122,7 +126,7 @@ export function MemoryPolaroids({ config, onOpenCustomizer }: MemoryPolaroidsPro
                         type="button"
                         onClick={(e) => toggleFlip(photo.id, e)}
                         title="Read note on back"
-                        className="flex items-center gap-1 px-2 py-1 rounded bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 hover:bg-rose-100 font-medium text-[11px] transition-colors cursor-pointer"
+                        className={`flex items-center gap-1 px-2 py-1 rounded ${themeStyles.cardHighlightBg} border ${themeStyles.cardBorder} text-xs font-semibold ${themeStyles.isDark ? 'text-rose-300' : 'text-rose-700'} hover:scale-105 transition-all cursor-pointer`}
                       >
                         <RotateCw className="w-3 h-3" />
                         <span>Flip Note</span>
@@ -133,21 +137,21 @@ export function MemoryPolaroids({ config, onOpenCustomizer }: MemoryPolaroidsPro
 
                 {/* BACK OF POLAROID (Secret Handwritten Note) */}
                 <div
-                  className="absolute inset-0 bg-[#fffbf2] dark:bg-stone-850 p-5 rounded-lg shadow-xl border border-amber-200/80 dark:border-stone-700 flex flex-col justify-between text-left select-none"
+                  className={`absolute inset-0 ${themeStyles.isDark ? 'bg-stone-900 border-stone-700' : 'bg-[#fffbf2] border-amber-200/80'} p-5 rounded-lg shadow-xl border flex flex-col justify-between text-left select-none`}
                   style={{
                     backfaceVisibility: 'hidden',
                     transform: 'rotateY(180deg)',
                   }}
                 >
-                  <div className="flex items-center justify-between border-b border-amber-200 dark:border-stone-700 pb-2">
-                    <div className="flex items-center gap-1 text-rose-600 text-xs font-bold font-serif-romantic">
+                  <div className={`flex items-center justify-between border-b ${themeStyles.isDark ? 'border-stone-800' : 'border-amber-200'} pb-2`}>
+                    <div className="flex items-center gap-1 text-rose-500 text-xs font-bold font-serif-romantic">
                       <Heart className="w-3.5 h-3.5 fill-rose-500" />
                       <span>Secret Memory Note</span>
                     </div>
                     <button
                       type="button"
                       onClick={(e) => toggleFlip(photo.id, e)}
-                      className="text-stone-400 hover:text-stone-600 text-xs flex items-center gap-1"
+                      className="text-stone-400 hover:text-stone-600 text-xs flex items-center gap-1 cursor-pointer"
                     >
                       <RotateCw className="w-3 h-3" />
                       <span>Flip Back</span>
@@ -156,19 +160,19 @@ export function MemoryPolaroids({ config, onOpenCustomizer }: MemoryPolaroidsPro
 
                   {/* Back Note Message */}
                   <div className="my-auto py-2">
-                    <p className="font-casual text-base sm:text-lg text-stone-800 dark:text-stone-200 leading-relaxed italic">
+                    <p className={`font-casual text-base sm:text-lg ${themeStyles.isDark ? 'text-stone-200' : 'text-stone-800'} leading-relaxed italic`}>
                       "{photo.noteOnBack || 'Every second with you is a treasure I hold close to my heart.'}"
                     </p>
                   </div>
 
-                  <div className="pt-2 border-t border-amber-200/60 dark:border-stone-700/60 flex items-center justify-between text-[11px] text-stone-500">
+                  <div className={`pt-2 border-t ${themeStyles.isDark ? 'border-stone-800' : 'border-amber-200/60'} flex items-center justify-between text-[11px] text-stone-500`}>
                     {photo.location && (
                       <span className="flex items-center gap-0.5">
                         <MapPin className="w-3 h-3 text-rose-500" />
                         {photo.location}
                       </span>
                     )}
-                    <span className="font-handwriting text-rose-700 dark:text-rose-400 text-sm">
+                    <span className="font-handwriting text-rose-600 dark:text-rose-400 text-sm font-bold">
                       Forever with you ❤️
                     </span>
                   </div>
@@ -183,7 +187,7 @@ export function MemoryPolaroids({ config, onOpenCustomizer }: MemoryPolaroidsPro
       <div className="mt-12">
         <button
           onClick={onOpenCustomizer}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white dark:bg-stone-800 hover:bg-rose-50 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 border border-stone-300 dark:border-stone-700 text-xs font-medium shadow-xs transition-all cursor-pointer"
+          className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full ${themeStyles.cardBg} border ${themeStyles.cardBorder} ${themeStyles.isDark ? 'text-stone-100' : 'text-stone-800'} text-xs font-semibold shadow-md transition-all hover:scale-105 cursor-pointer`}
         >
           <Camera className="w-4 h-4 text-rose-500" />
           <span>Add More Memories or Change Photos</span>
@@ -224,7 +228,7 @@ export function MemoryPolaroids({ config, onOpenCustomizer }: MemoryPolaroidsPro
               </div>
 
               <div className="p-6 text-left space-y-3">
-                <h3 className="font-serif-romantic text-2xl font-bold text-stone-900 dark:text-stone-100">
+                <h3 className="font-serif-romantic text-2xl font-bold text-stone-900 dark:text-stone-100 font-glow-gold">
                   {selectedPhoto.caption}
                 </h3>
                 {selectedPhoto.noteOnBack && (

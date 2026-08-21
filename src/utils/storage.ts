@@ -143,6 +143,14 @@ Happy Birthday, my love. Today, tomorrow, and every day after, I am so grateful 
     },
   ],
   bgMusicEnabled: true,
+  musicType: 'synth',
+  musicYoutubeUrl: '',
+  musicAudioUrl: '',
+  musicAudioName: '',
+  celebrationVideoType: 'default',
+  celebrationVideoUrl: '',
+  celebrationVideoName: '',
+  celebrationVideoAutoplay: true,
 };
 
 const STORAGE_KEY = 'romantic_birthday_surprise_config_v1';

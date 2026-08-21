@@ -18,6 +18,203 @@
   }
 }
 
+/* =========================================================================
+   ANIMATED LIGHTING, SHIMMER & SPARKLING FONT STYLES ACROSS ALL THEMES
+   ========================================================================= */
+
+@keyframes textShimmerSparkle {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes letterFloatWave {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-4px) rotate(-1deg);
+  }
+  75% {
+    transform: translateY(3px) rotate(1deg);
+  }
+}
+
+@keyframes textGlowPulseRose {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(244, 63, 94, 0.45)) drop-shadow(0 0 16px rgba(244, 63, 94, 0.25));
+  }
+  50% {
+    filter: drop-shadow(0 0 16px rgba(244, 63, 94, 0.8)) drop-shadow(0 0 32px rgba(251, 113, 133, 0.5));
+  }
+}
+
+@keyframes textGlowPulseMidnight {
+  0%, 100% {
+    filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.6)) drop-shadow(0 0 20px rgba(236, 72, 153, 0.4)) drop-shadow(0 0 30px rgba(253, 224, 71, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 20px rgba(168, 85, 247, 0.95)) drop-shadow(0 0 35px rgba(236, 72, 153, 0.7)) drop-shadow(0 0 50px rgba(253, 224, 71, 0.6));
+  }
+}
+
+@keyframes textGlowPulseSunset {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(249, 115, 22, 0.5)) drop-shadow(0 0 18px rgba(245, 158, 11, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 16px rgba(249, 115, 22, 0.85)) drop-shadow(0 0 32px rgba(245, 158, 11, 0.6));
+  }
+}
+
+@keyframes textGlowPulseCrimson {
+  0%, 100% {
+    filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.6)) drop-shadow(0 0 20px rgba(225, 29, 72, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 20px rgba(239, 68, 68, 0.95)) drop-shadow(0 0 38px rgba(251, 113, 133, 0.65));
+  }
+}
+
+@keyframes textGlowPulseEmerald {
+  0%, 100% {
+    filter: drop-shadow(0 0 10px rgba(52, 211, 153, 0.6)) drop-shadow(0 0 20px rgba(16, 185, 129, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 20px rgba(52, 211, 153, 0.95)) drop-shadow(0 0 36px rgba(110, 231, 183, 0.7));
+  }
+}
+
+@keyframes textGlowPulseSakura {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(244, 114, 182, 0.5)) drop-shadow(0 0 16px rgba(251, 113, 133, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 18px rgba(244, 114, 182, 0.85)) drop-shadow(0 0 32px rgba(253, 164, 175, 0.6));
+  }
+}
+
+@keyframes textGlowPulseCandyland {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(236, 72, 153, 0.5)) drop-shadow(0 0 16px rgba(6, 182, 212, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 18px rgba(236, 72, 153, 0.9)) drop-shadow(0 0 32px rgba(6, 182, 212, 0.7));
+  }
+}
+
+@keyframes textGlowPulseLavender {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.5)) drop-shadow(0 0 16px rgba(192, 132, 252, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 18px rgba(168, 85, 247, 0.85)) drop-shadow(0 0 32px rgba(216, 180, 254, 0.6));
+  }
+}
+
+@keyframes textGlowPulseVintage {
+  0%, 100% {
+    filter: drop-shadow(0 0 6px rgba(180, 83, 9, 0.4)) drop-shadow(0 0 14px rgba(217, 119, 6, 0.25));
+  }
+  50% {
+    filter: drop-shadow(0 0 14px rgba(180, 83, 9, 0.75)) drop-shadow(0 0 28px rgba(245, 158, 11, 0.5));
+  }
+}
+
+@keyframes textGlowPulsePeach {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(251, 146, 60, 0.5)) drop-shadow(0 0 16px rgba(253, 186, 116, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 18px rgba(251, 146, 60, 0.85)) drop-shadow(0 0 32px rgba(244, 63, 94, 0.5));
+  }
+}
+
+@keyframes textGlowGold {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.7)) drop-shadow(0 0 16px rgba(245, 158, 11, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 18px rgba(251, 191, 36, 1)) drop-shadow(0 0 32px rgba(252, 211, 77, 0.7));
+  }
+}
+
+@keyframes starSparkleTwinkle {
+  0%, 100% {
+    transform: scale(0.8) rotate(0deg);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.3) rotate(180deg);
+    opacity: 1;
+    filter: drop-shadow(0 0 8px #fef08a);
+  }
+}
+
+/* Reusable Animated Text Classes */
+.font-shimmer-sparkle {
+  background-size: 250% 250%;
+  animation: textShimmerSparkle 5s ease-in-out infinite;
+}
+
+.font-letter-wave {
+  animation: letterFloatWave 3.5s ease-in-out infinite;
+}
+
+.font-glow-rose {
+  animation: textGlowPulseRose 2.8s infinite ease-in-out;
+}
+
+.font-glow-midnight {
+  animation: textGlowPulseMidnight 2.8s infinite ease-in-out;
+}
+
+.font-glow-sunset {
+  animation: textGlowPulseSunset 2.8s infinite ease-in-out;
+}
+
+.font-glow-crimson {
+  animation: textGlowPulseCrimson 2.8s infinite ease-in-out;
+}
+
+.font-glow-emerald {
+  animation: textGlowPulseEmerald 2.8s infinite ease-in-out;
+}
+
+.font-glow-sakura {
+  animation: textGlowPulseSakura 2.8s infinite ease-in-out;
+}
+
+.font-glow-candyland {
+  animation: textGlowPulseCandyland 2.8s infinite ease-in-out;
+}
+
+.font-glow-lavender {
+  animation: textGlowPulseLavender 2.8s infinite ease-in-out;
+}
+
+.font-glow-vintage {
+  animation: textGlowPulseVintage 2.8s infinite ease-in-out;
+}
+
+.font-glow-peach {
+  animation: textGlowPulsePeach 2.8s infinite ease-in-out;
+}
+
+.font-glow-gold {
+  animation: textGlowGold 2.5s infinite ease-in-out;
+}
+
+.star-sparkle-anim {
+  animation: starSparkleTwinkle 2s infinite ease-in-out;
+}
+
 @keyframes flameFlicker {
   0%, 100% {
     transform: scale(1) rotate(-1deg);

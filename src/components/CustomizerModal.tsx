@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
@@ -21,10 +21,22 @@ import {
   ShieldCheck,
   Palette,
   Image as ImageIcon,
+  Film,
+  Youtube,
+  Play,
+  Pause,
+  Radio,
+  Volume2,
+  VolumeX,
+  ChevronLeft,
+  ChevronRight,
+  ArrowUp,
 } from 'lucide-react';
 import { BirthdayConfig, PolaroidPhoto, LoveReason, LoveCoupon, ThemeType } from '../types';
 import { saveConfig, generateShareUrl, DEFAULT_BIRTHDAY_CONFIG } from '../utils/storage';
 import { sound } from '../utils/audio';
+import { extractYouTubeId } from '../utils/media';
+import { CelebrationVideoModal } from './CelebrationVideoModal';
 
 interface CustomizerModalProps {
   config: BirthdayConfig;
@@ -39,9 +51,56 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
   const [enteredPassword, setEnteredPassword] = useState('');
   const [passwordError, setPasswordError] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'theme' | 'photos' | 'letter' | 'reasons' | 'coupons' | 'share'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'theme' | 'music-video' | 'photos' | 'letter' | 'reasons' | 'coupons' | 'share'>('profile');
   const [copied, setCopied] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isTestingAudio, setIsTestingAudio] = useState(false);
+  const [isVideoPreviewOpen, setIsVideoPreviewOpen] = useState(false);
+  const [audioUploadError, setAudioUploadError] = useState<string | null>(null);
+  const [videoUploadError, setVideoUploadError] = useState<string | null>(null);
+  const tabsContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const TABS: Array<{
+    id: 'profile' | 'theme' | 'music-video' | 'photos' | 'letter' | 'reasons' | 'coupons' | 'share';
+    label: string;
+    icon: typeof Heart;
+    count?: number;
+  }> = [
+    { id: 'profile', label: 'Names & Dates', icon: Heart },
+    { id: 'theme', label: 'Themes & Atmosphere', icon: Palette },
+    { id: 'music-video', label: 'Music & Cake Video', icon: Music },
+    { id: 'photos', label: 'Photos Clothesline', icon: Camera, count: formData.polaroids.length },
+    { id: 'letter', label: 'Letter & Vows', icon: FileText },
+    { id: 'reasons', label: 'Love Jar Reasons', icon: Sparkles, count: formData.reasons.length },
+    { id: 'coupons', label: 'Love Coupons', icon: Ticket, count: formData.coupons.length },
+    { id: 'share', label: 'Share Link', icon: Share2 },
+  ];
+
+  const currentTabIndex = TABS.findIndex((t) => t.id === activeTab);
+
+  const goToPrevTab = () => {
+    if (currentTabIndex > 0) {
+      setActiveTab(TABS[currentTabIndex - 1].id);
+      sound.playPop();
+    }
+  };
+
+  const goToNextTab = () => {
+    if (currentTabIndex < TABS.length - 1) {
+      setActiveTab(TABS[currentTabIndex + 1].id);
+      sound.playSparkleChime();
+    }
+  };
+
+  // Scroll active tab into view when activeTab changes
+  useEffect(() => {
+    if (tabsContainerRef.current) {
+      const activeBtn = tabsContainerRef.current.querySelector(`[data-tab-id="${activeTab}"]`);
+      if (activeBtn) {
+        activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    }
+  }, [activeTab]);
 
   // Sync formData when config changes or modal opens
   useEffect(() => {
@@ -50,8 +109,19 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
       setEnteredPassword('');
       setPasswordError(false);
       setSaveSuccess(false);
+      setIsTestingAudio(false);
+      setIsVideoPreviewOpen(false);
+      setAudioUploadError(null);
+      setVideoUploadError(null);
     }
   }, [isOpen, config]);
+
+  // Clean up audio testing when unmounting or switching tabs
+  useEffect(() => {
+    return () => {
+      sound.stopBackgroundMusic();
+    };
+  }, []);
 
   if (!isOpen) return null;
 
@@ -102,6 +172,77 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
     setCopied(true);
     sound.playSparkleChime();
     setTimeout(() => setCopied(false), 3000);
+  };
+
+  // Audio Upload Handler (MP3, WAV, M4A, OGG)
+  const handleAudioUpload = (file: File) => {
+    setAudioUploadError(null);
+    if (!file.type.startsWith('audio/') && !file.name.match(/\.(mp3|wav|m4a|ogg|aac)$/i)) {
+      setAudioUploadError('Please select a valid audio file (MP3, WAV, M4A, OGG).');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        const base64 = e.target.result as string;
+        setFormData((prev) => ({
+          ...prev,
+          musicType: 'upload',
+          musicAudioUrl: base64,
+          musicAudioName: file.name,
+        }));
+        sound.playSparkleChime();
+      }
+    };
+    reader.onerror = () => {
+      setAudioUploadError('Failed to read audio file. Please try another file.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Video Upload Handler (MP4, WebM, MOV)
+  const handleVideoUpload = (file: File) => {
+    setVideoUploadError(null);
+    if (!file.type.startsWith('video/') && !file.name.match(/\.(mp4|webm|mov|m4v)$/i)) {
+      setVideoUploadError('Please select a valid video file (MP4, WebM, MOV).');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        const base64 = e.target.result as string;
+        setFormData((prev) => ({
+          ...prev,
+          celebrationVideoType: 'upload',
+          celebrationVideoUrl: base64,
+          celebrationVideoName: file.name,
+        }));
+        sound.playSparkleChime();
+      }
+    };
+    reader.onerror = () => {
+      setVideoUploadError('Failed to read video file. Please try another file.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Toggle in-modal audio preview testing
+  const toggleTestAudio = () => {
+    if (isTestingAudio) {
+      sound.stopBackgroundMusic();
+      setIsTestingAudio(false);
+    } else {
+      setIsTestingAudio(true);
+      if (formData.musicType === 'upload' || formData.musicType === 'url') {
+        if (formData.musicAudioUrl) {
+          sound.setCustomAudio(formData.musicAudioUrl);
+          sound.startBackgroundMusic();
+        }
+      } else {
+        sound.setCustomAudio(null);
+        sound.startBackgroundMusic();
+      }
+    }
   };
 
   // Photo Upload Handler (FileReader base64)
@@ -196,6 +337,24 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
       colors: ['#f43f5e', '#fb7185', '#fda4af', '#fecdd3'],
     },
     {
+      id: 'couple-love',
+      name: 'Couple Love & Eternal Heart',
+      tagline: 'Deep passionate ruby love, romantic heartbeats & radiant warmth',
+      badge: 'Couple Special ❤️',
+      gradient: 'from-[#2a0813] via-[#1a040b] to-[#0d0206]',
+      colors: ['#e11d48', '#f43f5e', '#fb7185', '#fde047'],
+      dark: true,
+    },
+    {
+      id: 'surprise',
+      name: 'Midnight Starlight Surprise',
+      tagline: 'Exciting glowing neon stars, magic purple aura & birthday firework sparkles',
+      badge: 'Surprise Grand ✨',
+      gradient: 'from-[#180828] via-[#0d0418] to-[#040108]',
+      colors: ['#d946ef', '#a855f7', '#fbbf24', '#06b6d4'],
+      dark: true,
+    },
+    {
       id: 'midnight',
       name: 'Starlight Galaxy',
       tagline: 'Deep celestial dark velvet, cosmic stardust & neon rose',
@@ -261,6 +420,14 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
       badge: 'Timeless',
       gradient: 'from-[#fefcf8] via-[#f8f3e6] to-[#ecdec4]',
       colors: ['#b45309', '#d97706', '#78350f', '#fef3c7'],
+    },
+    {
+      id: 'peach',
+      name: 'Warm Honey Peach',
+      tagline: 'Soft peach nectar, sweet apricot & sunny golden hour',
+      badge: 'Sweet Pastel',
+      gradient: 'from-[#fffbf5] via-[#fff3e6] to-[#ffe5cf]',
+      colors: ['#f97316', '#fb923c', '#f43f5e', '#fed7aa'],
     },
   ];
 
@@ -425,25 +592,24 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
           </AnimatePresence>
 
           {/* STICKY HORIZONTAL SCROLLABLE TABS BAR (NEVER GETS HIDDEN ON MOBILE) */}
-          <div className="flex border-b border-stone-200 dark:border-stone-800 px-2 sm:px-4 overflow-x-auto bg-stone-50/95 dark:bg-stone-900/95 backdrop-blur-md shrink-0 no-scrollbar gap-1.5 py-1.5">
-            {[
-              { id: 'profile', label: 'Names & Dates', icon: Heart },
-              { id: 'theme', label: 'Themes & Atmosphere', icon: Palette },
-              { id: 'photos', label: 'Photos Clothesline', icon: Camera, count: formData.polaroids.length },
-              { id: 'letter', label: 'Letter & Vows', icon: FileText },
-              { id: 'reasons', label: 'Love Jar Reasons', icon: Sparkles, count: formData.reasons.length },
-              { id: 'coupons', label: 'Love Coupons', icon: Ticket, count: formData.coupons.length },
-              { id: 'share', label: 'Share Link', icon: Share2 },
-            ].map((tab) => {
+          <div 
+            ref={tabsContainerRef}
+            className="flex border-b border-stone-200 dark:border-stone-800 px-2 sm:px-4 overflow-x-auto bg-stone-50/95 dark:bg-stone-900/95 backdrop-blur-md shrink-0 no-scrollbar gap-1.5 py-1.5 scroll-smooth"
+          >
+            {TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                  data-tab-id={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    sound.playPop();
+                  }}
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap cursor-pointer transition-all shrink-0 ${
                     isActive
-                      ? 'bg-rose-500 text-white shadow-sm'
+                      ? 'bg-rose-500 text-white shadow-sm ring-1 ring-rose-400'
                       : 'bg-white/80 dark:bg-stone-800/80 text-stone-600 dark:text-stone-300 hover:bg-stone-200/70 border border-stone-200/60 dark:border-stone-700/60'
                   }`}
                 >
@@ -631,22 +797,499 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
                       </div>
                       <div>
                         <div className="text-xs font-bold text-stone-900 dark:text-stone-100">
-                          Romantic Music Box Melody
+                          Romantic Background Music
                         </div>
                         <div className="text-[10px] sm:text-[11px] text-stone-500 dark:text-stone-400">
-                          Ambient acoustic lullaby music box plays upon envelope unsealing
+                          Configure YouTube, custom uploaded songs, or music box melody in the Music & Video tab
                         </div>
                       </div>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('music-video')}
+                      className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold cursor-pointer shrink-0 transition-all active:scale-95"
+                    >
+                      Configure Music & Video
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: Music & Candle Blow Video (BACKGROUND MUSIC & CELEBRATION VIDEO) */}
+            {activeTab === 'music-video' && (
+              <div className="space-y-6">
+                {/* SECTION 1: BACKGROUND MUSIC */}
+                <div className="space-y-3.5 p-4 rounded-2xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-850">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-rose-100 dark:bg-rose-950 text-rose-600 flex items-center justify-center shrink-0">
+                        <Music className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-bold text-stone-800 dark:text-stone-200">
+                          Background Music & Melody
+                        </h4>
+                        <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                          Select YouTube song, upload your favorite MP3, or use romantic chimes
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Master Background Music Toggle */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-medium text-stone-600 dark:text-stone-300">
+                        Music Enabled:
+                      </span>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={formData.bgMusicEnabled}
+                          onChange={(e) => setFormData({ ...formData, bgMusicEnabled: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-stone-300 peer-focus:outline-none rounded-full peer dark:bg-stone-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-600"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Music Mode Selector Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
+                    {[
+                      {
+                        type: 'synth',
+                        label: 'Romantic Music Box',
+                        desc: 'Built-in chime melody & chords',
+                        icon: Music,
+                      },
+                      {
+                        type: 'youtube',
+                        label: 'YouTube Song Link',
+                        desc: 'Any romantic or birthday video',
+                        icon: Youtube,
+                      },
+                      {
+                        type: 'upload',
+                        label: 'Upload Audio File',
+                        desc: 'MP3, WAV, M4A from device',
+                        icon: Upload,
+                      },
+                      {
+                        type: 'url',
+                        label: 'Direct Audio URL',
+                        desc: 'Direct link to audio stream/MP3',
+                        icon: Radio,
+                      },
+                    ].map((item) => {
+                      const isSelected = (formData.musicType || 'synth') === item.type;
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.type}
+                          type="button"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              musicType: item.type as BirthdayConfig['musicType'],
+                            });
+                            sound.playSparkleChime();
+                          }}
+                          className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                            isSelected
+                              ? 'border-rose-500 bg-rose-50/80 dark:bg-stone-800 ring-2 ring-rose-400 shadow-xs'
+                              : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 hover:border-stone-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <Icon className={`w-4 h-4 ${isSelected ? 'text-rose-600 dark:text-rose-400' : 'text-stone-500'}`} />
+                            <span className="text-xs font-bold text-stone-900 dark:text-stone-100">
+                              {item.label}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-stone-500 dark:text-stone-400">
+                            {item.desc}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* 1. YOUTUBE MUSIC INPUT */}
+                  {formData.musicType === 'youtube' && (
+                    <div className="p-3.5 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 space-y-2.5">
+                      <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300">
+                        Enter YouTube Song URL / Link
+                      </label>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Youtube className="w-4 h-4 text-red-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            value={formData.musicYoutubeUrl || ''}
+                            onChange={(e) => setFormData({ ...formData, musicYoutubeUrl: e.target.value })}
+                            placeholder="https://www.youtube.com/watch?v=... or youtu.be/..."
+                            className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-850 text-xs text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-rose-400 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Quick Suggestions / Presets */}
+                      <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                        <span className="text-[10px] text-stone-500">Suggested:</span>
+                        {[
+                          { title: 'Happy Birthday Lofi', url: 'https://www.youtube.com/watch?v=nl62hhiBMOM' },
+                          { title: 'Ed Sheeran - Perfect', url: 'https://www.youtube.com/watch?v=2Vv-BfVoq4g' },
+                          { title: 'Stephen Sanchez - Until I Found You', url: 'https://www.youtube.com/watch?v=GxldQ9eX2wo' },
+                        ].map((sugg) => (
+                          <button
+                            key={sugg.title}
+                            type="button"
+                            onClick={() => {
+                              setFormData({ ...formData, musicYoutubeUrl: sugg.url });
+                              sound.playSparkleChime();
+                            }}
+                            className="text-[10px] px-2 py-0.5 rounded-full bg-rose-50 dark:bg-stone-700 text-rose-700 dark:text-rose-300 hover:bg-rose-100 border border-rose-200/50 cursor-pointer"
+                          >
+                            + {sugg.title}
+                          </button>
+                        ))}
+                      </div>
+
+                      {formData.musicYoutubeUrl && extractYouTubeId(formData.musicYoutubeUrl) && (
+                        <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs flex items-center gap-2">
+                          <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>Valid YouTube song identified (Video ID: {extractYouTubeId(formData.musicYoutubeUrl)})</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 2. UPLOAD AUDIO FILE INPUT */}
+                  {formData.musicType === 'upload' && (
+                    <div className="p-3.5 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 space-y-3">
+                      <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300">
+                        Upload MP3 or Audio Song from your Device
+                      </label>
+
+                      <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
+                        <label className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-rose-300 dark:border-stone-600 hover:border-rose-500 bg-rose-50/40 dark:bg-stone-850 hover:bg-rose-50/80 cursor-pointer transition-colors text-xs font-semibold text-rose-700 dark:text-rose-300">
+                          <Upload className="w-4 h-4 text-rose-500" />
+                          <span>{formData.musicAudioName ? 'Change Audio File' : 'Click to Upload Audio (.mp3, .wav, .m4a)'}</span>
+                          <input
+                            type="file"
+                            accept="audio/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleAudioUpload(file);
+                            }}
+                          />
+                        </label>
+
+                        {formData.musicAudioUrl && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData({
+                                ...formData,
+                                musicAudioUrl: '',
+                                musicAudioName: '',
+                              });
+                              sound.playPop();
+                            }}
+                            className="px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-500 hover:text-rose-600 text-xs font-medium cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+
+                      {formData.musicAudioName && (
+                        <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-stone-750 border border-rose-200 dark:border-stone-700 flex items-center justify-between">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Music className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                            <span className="text-xs font-semibold text-stone-800 dark:text-stone-200 truncate">
+                              {formData.musicAudioName}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-emerald-600 font-semibold px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 rounded-full shrink-0">
+                            Loaded
+                          </span>
+                        </div>
+                      )}
+
+                      {audioUploadError && (
+                        <p className="text-xs text-rose-600 font-medium">{audioUploadError}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 3. DIRECT AUDIO URL INPUT */}
+                  {formData.musicType === 'url' && (
+                    <div className="p-3.5 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 space-y-2">
+                      <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300">
+                        Enter Direct Audio Stream / MP3 URL
+                      </label>
                       <input
-                        type="checkbox"
-                        checked={formData.bgMusicEnabled}
-                        onChange={(e) => setFormData({ ...formData, bgMusicEnabled: e.target.checked })}
-                        className="sr-only peer"
+                        type="url"
+                        value={formData.musicAudioUrl || ''}
+                        onChange={(e) => setFormData({ ...formData, musicAudioUrl: e.target.value })}
+                        placeholder="https://example.com/romantic-song.mp3"
+                        className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-850 text-xs text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-rose-400 focus:outline-none"
                       />
-                      <div className="w-10 h-5 bg-stone-300 peer-focus:outline-none rounded-full peer dark:bg-stone-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-600"></div>
-                    </label>
+                    </div>
+                  )}
+
+                  {/* Live Music Test Bar */}
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700">
+                    <div className="flex items-center gap-2">
+                      <Volume2 className="w-4 h-4 text-rose-500" />
+                      <span className="text-xs font-medium text-stone-700 dark:text-stone-300">
+                        Test background audio:
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={toggleTestAudio}
+                      className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all active:scale-95 ${
+                        isTestingAudio
+                          ? 'bg-rose-600 text-white shadow-xs'
+                          : 'bg-stone-100 dark:bg-stone-700 text-stone-800 dark:text-stone-200 hover:bg-stone-200'
+                      }`}
+                    >
+                      {isTestingAudio ? (
+                        <>
+                          <Pause className="w-3.5 h-3.5" />
+                          <span>Pause Melody</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          <span>Play Test Preview</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* SECTION 2: BIRTHDAY CANDLE BLOW CELEBRATION VIDEO */}
+                <div className="space-y-3.5 p-4 rounded-2xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-850">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-600 flex items-center justify-center shrink-0">
+                        <Film className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-bold text-stone-800 dark:text-stone-200">
+                          Cake Candle Blow Celebration Video
+                        </h4>
+                        <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                          Plays automatically when candles are blown out on the birthday cake
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Autoplay on blow toggle */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-medium text-stone-600 dark:text-stone-300">
+                        Auto-Play on Blow:
+                      </span>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={formData.celebrationVideoAutoplay !== false}
+                          onChange={(e) =>
+                            setFormData({ ...formData, celebrationVideoAutoplay: e.target.checked })
+                          }
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-stone-300 peer-focus:outline-none rounded-full peer dark:bg-stone-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-600"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Video Type Options */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
+                    {[
+                      {
+                        type: 'default',
+                        label: 'Singing Squirrel Song',
+                        desc: 'Viral cute hamster singing Happy Birthday',
+                        badge: 'Default',
+                      },
+                      {
+                        type: 'upload',
+                        label: 'Upload Custom Video',
+                        desc: 'Upload MP4/WebM video clip',
+                        badge: 'Custom',
+                      },
+                      {
+                        type: 'youtube',
+                        label: 'YouTube Video Link',
+                        desc: 'Play specific YouTube video',
+                        badge: 'YouTube',
+                      },
+                      {
+                        type: 'url',
+                        label: 'Direct Video URL',
+                        desc: 'Link to hosted MP4 video',
+                        badge: 'Direct',
+                      },
+                    ].map((item) => {
+                      const isSelected = (formData.celebrationVideoType || 'default') === item.type;
+                      return (
+                        <button
+                          key={item.type}
+                          type="button"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              celebrationVideoType: item.type as BirthdayConfig['celebrationVideoType'],
+                            });
+                            sound.playSparkleChime();
+                          }}
+                          className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                            isSelected
+                              ? 'border-amber-500 bg-amber-50/80 dark:bg-stone-800 ring-2 ring-amber-400 shadow-xs'
+                              : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 hover:border-stone-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-bold text-stone-900 dark:text-stone-100">
+                              {item.label}
+                            </span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 font-semibold">
+                              {item.badge}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-stone-500 dark:text-stone-400">
+                            {item.desc}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* 1. UPLOAD CUSTOM CELEBRATION VIDEO */}
+                  {formData.celebrationVideoType === 'upload' && (
+                    <div className="p-3.5 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 space-y-3">
+                      <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300">
+                        Upload Birthday Celebration Video from Phone or Computer
+                      </label>
+
+                      <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
+                        <label className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-amber-300 dark:border-stone-600 hover:border-amber-500 bg-amber-50/40 dark:bg-stone-850 hover:bg-amber-50/80 cursor-pointer transition-colors text-xs font-semibold text-amber-800 dark:text-amber-300">
+                          <Upload className="w-4 h-4 text-amber-500" />
+                          <span>
+                            {formData.celebrationVideoName
+                              ? 'Change Uploaded Video'
+                              : 'Click to Upload Video (.mp4, .webm, .mov)'}
+                          </span>
+                          <input
+                            type="file"
+                            accept="video/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleVideoUpload(file);
+                            }}
+                          />
+                        </label>
+
+                        {formData.celebrationVideoUrl && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData({
+                                ...formData,
+                                celebrationVideoUrl: '',
+                                celebrationVideoName: '',
+                              });
+                              sound.playPop();
+                            }}
+                            className="px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-500 hover:text-rose-600 text-xs font-medium cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+
+                      {formData.celebrationVideoName && (
+                        <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-stone-750 border border-amber-200 dark:border-stone-700 flex items-center justify-between">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Film className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                            <span className="text-xs font-semibold text-stone-800 dark:text-stone-200 truncate">
+                              {formData.celebrationVideoName}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-emerald-600 font-semibold px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 rounded-full shrink-0">
+                            Loaded
+                          </span>
+                        </div>
+                      )}
+
+                      {videoUploadError && (
+                        <p className="text-xs text-rose-600 font-medium">{videoUploadError}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 2. YOUTUBE CELEBRATION VIDEO */}
+                  {formData.celebrationVideoType === 'youtube' && (
+                    <div className="p-3.5 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 space-y-2">
+                      <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300">
+                        Enter YouTube Video URL (e.g. Birthday song or surprise clip)
+                      </label>
+                      <div className="relative">
+                        <Youtube className="w-4 h-4 text-red-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          value={formData.celebrationVideoUrl || ''}
+                          onChange={(e) => setFormData({ ...formData, celebrationVideoUrl: e.target.value })}
+                          placeholder="https://www.youtube.com/watch?v=..."
+                          className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-850 text-xs text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-amber-400 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 3. DIRECT VIDEO URL */}
+                  {formData.celebrationVideoType === 'url' && (
+                    <div className="p-3.5 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 space-y-2">
+                      <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300">
+                        Enter Direct MP4 Video URL
+                      </label>
+                      <input
+                        type="url"
+                        value={formData.celebrationVideoUrl || ''}
+                        onChange={(e) => setFormData({ ...formData, celebrationVideoUrl: e.target.value })}
+                        placeholder="https://example.com/birthday-video.mp4"
+                        className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-850 text-xs text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-amber-400 focus:outline-none"
+                      />
+                    </div>
+                  )}
+
+                  {/* Preview Video Button */}
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-500" />
+                      <span className="text-xs font-medium text-stone-700 dark:text-stone-300">
+                        Test celebration experience:
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsVideoPreviewOpen(true);
+                        sound.playSparkleChime();
+                      }}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-white text-xs font-semibold shadow-xs cursor-pointer transition-all active:scale-95"
+                    >
+                      <Film className="w-3.5 h-3.5" />
+                      <span>Preview Candle Blow Video 🐿️🎬</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -657,8 +1300,8 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
               <div className="space-y-4">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div>
-                    <h4 className="text-xs sm:text-sm font-bold text-stone-800 dark:text-stone-200">
-                      Couple Memory Photos ({formData.polaroids.length})
+                    <h4 className="text-xs sm:text-sm font-bold text-stone-800 dark:text-stone-200 flex items-center gap-1.5">
+                      <Camera className="w-4 h-4 text-rose-500" /> Couple Memory Photos ({formData.polaroids.length})
                     </h4>
                     <p className="text-[11px] text-stone-500 dark:text-stone-400">
                       Upload real photos from your phone gallery or edit handwritten captions
@@ -667,18 +1310,48 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
                   <button
                     type="button"
                     onClick={handleAddPolaroid}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 text-white text-xs font-semibold shadow-xs cursor-pointer hover:scale-105 active:scale-95 transition-all"
+                    className="flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 text-white text-xs font-semibold shadow-xs cursor-pointer hover:scale-105 active:scale-95 transition-all"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Add New Photo</span>
+                    <span>Add Photo</span>
                   </button>
                 </div>
+
+                {/* Mobile Quick Photo Selector Ribbon */}
+                {formData.polaroids.length > 0 && (
+                  <div className="p-2 rounded-xl bg-stone-100 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 flex items-center gap-2 overflow-x-auto no-scrollbar">
+                    <span className="text-[10px] uppercase font-bold text-stone-500 dark:text-stone-400 shrink-0 px-1">
+                      Quick View:
+                    </span>
+                    {formData.polaroids.map((p, idx) => (
+                      <a
+                        key={p.id}
+                        href={`#photo-card-${idx}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const el = document.getElementById(`photo-card-${idx}`);
+                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }}
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white dark:bg-stone-700 border border-stone-300 dark:border-stone-600 text-[11px] font-semibold text-stone-800 dark:text-stone-200 shrink-0 hover:bg-rose-50 dark:hover:bg-stone-600 transition-colors"
+                      >
+                        <img
+                          src={p.url}
+                          alt=""
+                          className="w-4 h-4 rounded-md object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                        <span>#{idx + 1}</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {formData.polaroids.map((photo, idx) => (
                     <div
                       key={photo.id}
-                      className="p-3.5 sm:p-4 rounded-2xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-850 space-y-3 shadow-xs"
+                      id={`photo-card-${idx}`}
+                      className="p-3.5 sm:p-4 rounded-2xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-850 space-y-3 shadow-xs scroll-mt-24"
                     >
                       {/* Photo card top bar */}
                       <div className="flex items-center justify-between">
@@ -1073,16 +1746,48 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
             )}
           </div>
 
-          {/* STICKY FOOTER WITH SAVE & RESET */}
-          <div className="p-3 sm:p-4 border-t border-rose-100 dark:border-stone-800 bg-rose-50/90 dark:bg-stone-850/90 backdrop-blur-md flex items-center justify-between shrink-0">
-            <button
-              type="button"
-              onClick={handleResetDefaults}
-              className="flex items-center gap-1 px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-600 dark:text-stone-300 text-xs sm:text-sm font-medium hover:bg-rose-50 dark:hover:bg-stone-800 hover:text-rose-600 cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset All</span>
-            </button>
+          {/* STICKY FOOTER WITH SAVE, PREV/NEXT & RESET */}
+          <div className="p-3 sm:p-4 border-t border-rose-100 dark:border-stone-800 bg-rose-50/95 dark:bg-stone-850/95 backdrop-blur-md flex flex-wrap items-center justify-between gap-2 shrink-0">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleResetDefaults}
+                className="flex items-center gap-1 px-2.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-600 dark:text-stone-300 text-xs font-medium hover:bg-rose-50 dark:hover:bg-stone-800 hover:text-rose-600 cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span className="hidden xs:inline">Reset</span>
+              </button>
+
+              {/* Tab Navigation Arrows */}
+              <button
+                type="button"
+                onClick={goToPrevTab}
+                disabled={currentTabIndex === 0}
+                className={`p-2 rounded-xl border text-xs font-medium flex items-center gap-1 transition-all ${
+                  currentTabIndex === 0
+                    ? 'opacity-40 cursor-not-allowed border-stone-200 dark:border-stone-800 text-stone-400'
+                    : 'border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer active:scale-95'
+                }`}
+                title="Previous Option"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Prev</span>
+              </button>
+              <button
+                type="button"
+                onClick={goToNextTab}
+                disabled={currentTabIndex === TABS.length - 1}
+                className={`p-2 rounded-xl border text-xs font-medium flex items-center gap-1 transition-all ${
+                  currentTabIndex === TABS.length - 1
+                    ? 'opacity-40 cursor-not-allowed border-stone-200 dark:border-stone-800 text-stone-400'
+                    : 'border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer active:scale-95'
+                }`}
+                title="Next Option"
+              >
+                <span className="hidden sm:inline">Next</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
 
             <div className="flex items-center gap-2">
               <button
@@ -1090,12 +1795,12 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
                 onClick={onClose}
                 className="px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 text-xs sm:text-sm font-medium hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer"
               >
-                Close
+                Cancel
               </button>
               <button
                 type="button"
                 onClick={handleSave}
-                className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white text-xs sm:text-sm font-semibold shadow-md cursor-pointer hover:scale-105 active:scale-95 transition-all"
+                className="flex items-center gap-1.5 px-4 sm:px-6 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white text-xs sm:text-sm font-semibold shadow-md cursor-pointer hover:scale-105 active:scale-95 transition-all"
               >
                 <Save className="w-3.5 h-3.5" />
                 <span>Save Changes</span>
@@ -1104,6 +1809,13 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
           </div>
         </motion.div>
       )}
+
+      {/* Video Preview Modal */}
+      <CelebrationVideoModal
+        isOpen={isVideoPreviewOpen}
+        onClose={() => setIsVideoPreviewOpen(false)}
+        config={formData}
+      />
     </div>
   );
 }

@@ -8,7 +8,37 @@ class SoundEngine {
   private isMusicPlaying = false;
   private musicTimeout: number | null = null;
   private currentNoteIndex = 0;
-  private gainNode: GainNode | null = null;
+  private customAudio: HTMLAudioElement | null = null;
+  private customAudioUrl: string | null = null;
+  private listeners: Set<(playing: boolean) => void> = new Set();
+
+  public addListener(cb: (playing: boolean) => void) {
+    this.listeners.add(cb);
+    return () => this.listeners.delete(cb);
+  }
+
+  private notifyListeners() {
+    this.listeners.forEach((cb) => cb(this.isMusicPlaying));
+  }
+
+  public setCustomAudio(url: string | null) {
+    this.customAudioUrl = url;
+    if (this.customAudio) {
+      this.customAudio.pause();
+      this.customAudio.src = '';
+      this.customAudio = null;
+    }
+    if (url) {
+      this.customAudio = new Audio(url);
+      this.customAudio.loop = true;
+      this.customAudio.addEventListener('ended', () => {
+        if (this.isMusicPlaying && this.customAudio) {
+          this.customAudio.currentTime = 0;
+          this.customAudio.play().catch(() => {});
+        }
+      });
+    }
+  }
 
   private initCtx() {
     if (!this.ctx) {
@@ -95,12 +125,25 @@ class SoundEngine {
     this.initCtx();
     if (this.isMusicPlaying) return;
     this.isMusicPlaying = true;
-    this.currentNoteIndex = 0;
-    this.scheduleNextNote();
+    this.notifyListeners();
+
+    if (this.customAudioUrl && this.customAudio) {
+      this.customAudio.currentTime = 0;
+      this.customAudio.play().catch((err) => {
+        console.warn('Audio autoplay prevented or error playing custom audio', err);
+      });
+    } else {
+      this.currentNoteIndex = 0;
+      this.scheduleNextNote();
+    }
   }
 
   public stopBackgroundMusic() {
     this.isMusicPlaying = false;
+    this.notifyListeners();
+    if (this.customAudio) {
+      this.customAudio.pause();
+    }
     if (this.musicTimeout) {
       window.clearTimeout(this.musicTimeout);
       this.musicTimeout = null;
@@ -211,6 +254,83 @@ class SoundEngine {
       setTimeout(() => {
         this.playNote(f, 0.8, 0.12);
       }, i * 70);
+    });
+  }
+
+  // Cute Chipmunk Happy Birthday vocal song player
+  private birthdaySongTimeouts: number[] = [];
+
+  public stopHappyBirthdaySong() {
+    this.birthdaySongTimeouts.forEach((t) => clearTimeout(t));
+    this.birthdaySongTimeouts = [];
+  }
+
+  public playHappyBirthdaySong() {
+    this.stopHappyBirthdaySong();
+    this.initCtx();
+    if (!this.ctx) return;
+
+    // High pitched, cheerful singing chipmunk/squirrel tone frequencies & durations
+    const notes = [
+      // "Happy birth-day to you"
+      { f: 587.33, d: 0.28, delay: 0 },
+      { f: 587.33, d: 0.28, delay: 300 },
+      { f: 659.25, d: 0.55, delay: 600 },
+      { f: 587.33, d: 0.55, delay: 1180 },
+      { f: 783.99, d: 0.55, delay: 1760 },
+      { f: 739.99, d: 1.1, delay: 2340 },
+
+      // "Happy birth-day to you"
+      { f: 587.33, d: 0.28, delay: 3500 },
+      { f: 587.33, d: 0.28, delay: 3800 },
+      { f: 659.25, d: 0.55, delay: 4100 },
+      { f: 587.33, d: 0.55, delay: 4680 },
+      { f: 880.00, d: 0.55, delay: 5260 },
+      { f: 783.99, d: 1.1, delay: 5840 },
+
+      // "Happy birth-day to dear [Name]"
+      { f: 587.33, d: 0.28, delay: 7000 },
+      { f: 587.33, d: 0.28, delay: 7300 },
+      { f: 1174.66, d: 0.55, delay: 7600 },
+      { f: 987.77, d: 0.55, delay: 8180 },
+      { f: 783.99, d: 0.55, delay: 8760 },
+      { f: 739.99, d: 0.55, delay: 9340 },
+      { f: 659.25, d: 0.9, delay: 9920 },
+
+      // "Happy birth-day to youuuuu!"
+      { f: 1046.50, d: 0.32, delay: 10900 },
+      { f: 1046.50, d: 0.32, delay: 11250 },
+      { f: 987.77, d: 0.55, delay: 11600 },
+      { f: 783.99, d: 0.55, delay: 12180 },
+      { f: 880.00, d: 0.65, delay: 12760 },
+      { f: 783.99, d: 1.4, delay: 13450 },
+    ];
+
+    notes.forEach((n) => {
+      const tid = window.setTimeout(() => {
+        try {
+          if (!this.ctx) return;
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          // Cute chipmunk vibrato
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(n.f, now);
+
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.exponentialRampToValueAtTime(0.18, now + 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + n.d);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start(now);
+          osc.stop(now + n.d);
+        } catch {}
+      }, n.delay);
+
+      this.birthdaySongTimeouts.push(tid);
     });
   }
 

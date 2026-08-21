@@ -4,13 +4,16 @@ import { Sparkles, Heart, Gift, ArrowRight } from 'lucide-react';
 import { BirthdayConfig } from '../types';
 import { sound } from '../utils/audio';
 import { fireHeartConfetti } from '../utils/confetti';
+import { getThemeStyles } from '../utils/themeStyles';
 
 interface EnvelopeIntroProps {
   config: BirthdayConfig;
   onOpen: () => void;
+  onOpenCustomizer?: () => void;
 }
 
-export function EnvelopeIntro({ config, onOpen }: EnvelopeIntroProps) {
+export function EnvelopeIntro({ config, onOpen, onOpenCustomizer }: EnvelopeIntroProps) {
+  const themeStyles = getThemeStyles(config.theme);
   const [isOpening, setIsOpening] = useState(false);
   const [hasCrackedSeal, setHasCrackedSeal] = useState(false);
 
@@ -45,13 +48,15 @@ export function EnvelopeIntro({ config, onOpen }: EnvelopeIntroProps) {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.2, type: 'spring' }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-rose-500/10 border border-rose-400/30 text-rose-300 text-xs font-medium tracking-wide shadow-sm"
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full ${themeStyles.badgeBg} border ${themeStyles.badgeBorder} ${themeStyles.badgeText} text-xs font-semibold tracking-wide shadow-sm`}
             >
-              <Sparkles className="w-3.5 h-3.5 text-rose-400 animate-spin" style={{ animationDuration: '4s' }} />
+              <Sparkles className="w-3.5 h-3.5 text-amber-300 star-sparkle-anim" />
               <span>CONFIDENTIAL • FOR YOUR EYES ONLY</span>
             </motion.div>
-            <h1 className="font-serif-romantic text-3xl sm:text-4xl text-rose-100 font-semibold tracking-tight">
-              A Special Delivery
+            <h1 className="font-serif-romantic text-3xl sm:text-4xl text-rose-100 font-bold tracking-tight">
+              <span className={`bg-clip-text text-transparent bg-gradient-to-r ${themeStyles.sectionHeaderGradient} drop-shadow-sm`}>
+                A Special Delivery ✨
+              </span>
             </h1>
             <p className="text-stone-300 text-sm font-sans-clean">
               Tap the wax seal below to unlock your birthday surprise
@@ -154,17 +159,27 @@ export function EnvelopeIntro({ config, onOpen }: EnvelopeIntroProps) {
           </div>
 
           {/* Action Prompt Button */}
-          <div className="mt-8">
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
             <button
               id="envelope-open-button"
               onClick={handleOpenEnvelope}
               disabled={isOpening}
-              className="inline-flex items-center gap-2.5 px-6 py-3 rounded-full bg-gradient-to-r from-rose-600 via-pink-600 to-rose-600 hover:from-rose-500 hover:to-pink-500 text-white font-medium text-sm shadow-[0_10px_25px_rgba(244,63,94,0.4)] transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer"
+              className={`inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-gradient-to-r ${themeStyles.accentBtnGradient} hover:brightness-110 text-white font-semibold text-sm sm:text-base shadow-[0_10px_25px_rgba(244,63,94,0.4)] transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer`}
             >
-              <Heart className="w-4 h-4 fill-white" />
-              <span>{isOpening ? 'Unfolding Your Surprise...' : 'Open Birthday Surprise'}</span>
+              <Heart className="w-4 h-4 fill-white animate-pulse" />
+              <span>{isOpening ? 'Unfolding Your Surprise...' : 'Open Birthday Surprise ✨'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
+
+            {onOpenCustomizer && (
+              <button
+                type="button"
+                onClick={onOpenCustomizer}
+                className="px-4 py-2 text-xs font-medium text-rose-300 hover:text-white hover:bg-white/10 rounded-full border border-rose-400/30 transition-colors cursor-pointer"
+              >
+                ⚙️ Customization Studio
+              </button>
+            )}
           </div>
         </motion.div>
       </div>

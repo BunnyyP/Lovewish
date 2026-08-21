@@ -26,6 +26,8 @@ export interface LoveCoupon {
 
 export type ThemeType =
   | 'rose'
+  | 'couple-love'
+  | 'surprise'
   | 'midnight'
   | 'sunset'
   | 'crimson'
@@ -55,4 +57,12 @@ export interface BirthdayConfig {
   reasons: LoveReason[];
   coupons: LoveCoupon[];
   bgMusicEnabled: boolean;
+  musicType?: 'synth' | 'youtube' | 'upload' | 'url';
+  musicYoutubeUrl?: string;
+  musicAudioUrl?: string; // Base64 audio data or direct link
+  musicAudioName?: string;
+  celebrationVideoType?: 'default' | 'upload' | 'youtube' | 'url';
+  celebrationVideoUrl?: string; // Base64 video data or URL
+  celebrationVideoName?: string;
+  celebrationVideoAutoplay?: boolean;
 }

@@ -13,6 +13,22 @@ export function BirthdayJhalar({ config }: BirthdayJhalarProps) {
 
   const getThemePalette = (theme?: ThemeType) => {
     switch (theme) {
+      case 'couple-love':
+        return {
+          flagBg: ['bg-rose-700', 'bg-pink-700', 'bg-red-800', 'bg-rose-900', 'bg-pink-800'],
+          flagText: 'text-amber-200',
+          stringColor: 'border-pink-500/60',
+          bulbColors: ['bg-rose-400 shadow-rose-400/90', 'bg-pink-300 shadow-pink-300/90', 'bg-amber-300 shadow-amber-300/90', 'bg-red-400 shadow-red-400/90'],
+          accentHeart: 'text-rose-400',
+        };
+      case 'surprise':
+        return {
+          flagBg: ['bg-fuchsia-700', 'bg-purple-800', 'bg-amber-600', 'bg-cyan-700', 'bg-pink-700'],
+          flagText: 'text-amber-200',
+          stringColor: 'border-fuchsia-400/60',
+          bulbColors: ['bg-amber-300 shadow-amber-300/90', 'bg-fuchsia-400 shadow-fuchsia-400/90', 'bg-cyan-300 shadow-cyan-300/90', 'bg-yellow-200 shadow-yellow-200/90'],
+          accentHeart: 'text-amber-400',
+        };
       case 'midnight':
         return {
           flagBg: ['bg-purple-900', 'bg-indigo-900', 'bg-rose-900', 'bg-violet-950', 'bg-fuchsia-900'],
@@ -168,7 +184,7 @@ export function BirthdayJhalar({ config }: BirthdayJhalarProps) {
 
               {/* Triangle / Banner Flag */}
               <div
-                className={`relative px-1.5 sm:px-2.5 pt-1 pb-2 rounded-b-md shadow-md text-[11px] sm:text-sm font-black tracking-wider ${bgClass} ${palette.flagText} flex items-center justify-center min-w-[20px] sm:min-w-[26px]`}
+                className={`relative px-1.5 sm:px-2.5 pt-1 pb-2 rounded-b-md shadow-md text-[11px] sm:text-sm font-black tracking-wider ${bgClass} ${palette.flagText} flex items-center justify-center min-w-[20px] sm:min-w-[26px] drop-shadow-md`}
                 style={{
                   clipPath: 'polygon(0% 0%, 100% 0%, 100% 85%, 50% 100%, 0% 85%)',
                 }}
@@ -176,7 +192,7 @@ export function BirthdayJhalar({ config }: BirthdayJhalarProps) {
                 {isHeart ? (
                   <Heart className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-current text-white animate-pulse" />
                 ) : (
-                  <span>{char}</span>
+                  <span className="font-shimmer-sparkle">{char}</span>
                 )}
               </div>
             </motion.button>
