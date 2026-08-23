@@ -627,23 +627,9 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
                   animate={{ opacity: 1, y: 0 }}
                   className="text-xs text-rose-600 dark:text-rose-400 font-medium mt-2"
                 >
-                  Incorrect password. (Default is <code className="bg-rose-100 dark:bg-rose-900/60 px-1.5 py-0.5 rounded text-rose-700 dark:text-rose-300 font-bold">HoneyBunny</code>)
+                  Incorrect password. Please try again.
                 </motion.p>
               )}
-
-              {/* Quick Fill Password Hint */}
-              <div className="mt-2 text-right">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEnteredPassword(expectedPassword);
-                    setPasswordError(false);
-                  }}
-                  className="text-[11px] text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
-                >
-                  Quick Fill Default Password ({expectedPassword})
-                </button>
-              </div>
             </div>
 
             <div className="pt-2 flex gap-2.5">
@@ -853,15 +839,56 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
 
                   <div>
                     <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
-                      Customization Password
+                      Main Site Access Password (Lock Screen)
                     </label>
                     <input
                       type="text"
-                      value={formData.customizationPassword || 'HoneyBunny'}
+                      value={formData.siteLockPassword || 'Merijaan'}
+                      onChange={(e) => setFormData({ ...formData, siteLockPassword: e.target.value })}
+                      className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-sm focus:ring-2 focus:ring-rose-400 focus:outline-none font-mono"
+                      placeholder="e.g. Merijaan"
+                    />
+                    <p className="text-[10px] text-stone-500 mt-1">
+                      Required for anyone visiting the website to unlock and view the surprise.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                      Customizer Studio Password
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.customizationPassword || 'Merijaan'}
                       onChange={(e) => setFormData({ ...formData, customizationPassword: e.target.value })}
                       className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-sm focus:ring-2 focus:ring-rose-400 focus:outline-none font-mono"
                     />
+                    <p className="text-[10px] text-stone-500 mt-1">
+                      Required to open and edit settings inside the Customizer modal.
+                    </p>
                   </div>
+                </div>
+
+                {/* Site Lock Toggle */}
+                <div className="p-3.5 rounded-2xl bg-amber-50/70 dark:bg-stone-850 border border-amber-200/80 dark:border-stone-700 flex items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <div className="text-xs font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Require Password To Access Site</span>
+                    </div>
+                    <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                      When enabled, shows the secret lock screen immediately upon visiting the website.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={formData.siteLockEnabled !== false}
+                      onChange={(e) => setFormData({ ...formData, siteLockEnabled: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-stone-300 peer-focus:outline-none rounded-full peer dark:bg-stone-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-stone-600 peer-checked:bg-amber-600"></div>
+                  </label>
                 </div>
               </div>
             )}

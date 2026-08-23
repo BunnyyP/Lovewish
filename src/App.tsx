@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { BirthdayConfig, LoveCoupon, ThemeType } from './types';
 import { loadSavedConfig, saveConfig, initPersistentStorage } from './utils/storage';
 import { FloatingParticles } from './components/FloatingParticles';
+import { SiteLockScreen } from './components/SiteLockScreen';
 import { EnvelopeIntro } from './components/EnvelopeIntro';
 import { ShareBar } from './components/ShareBar';
 import { BirthdayJhalar } from './components/BirthdayJhalar';
@@ -18,6 +19,12 @@ import { getThemeStyles } from './utils/themeStyles';
 
 export default function App() {
   const [config, setConfig] = useState<BirthdayConfig>(() => loadSavedConfig());
+  const [isSiteUnlocked, setIsSiteUnlocked] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('romantic_site_unlocked') === 'true';
+    }
+    return false;
+  });
   const [isEnvelopeOpen, setIsEnvelopeOpen] = useState(false);
   const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
   const [activeChapter, setActiveChapter] = useState('hero-letter');
@@ -61,8 +68,16 @@ export default function App() {
       {/* Ambient Floating Stardust & Hearts */}
       <FloatingParticles />
 
+      {/* Site-Wide Access Lock Screen (Password: Merijaan - strictly NO hints) */}
+      {config.siteLockEnabled !== false && !isSiteUnlocked && (
+        <SiteLockScreen
+          config={config}
+          onUnlock={() => setIsSiteUnlocked(true)}
+        />
+      )}
+
       {/* Sealed Wax Envelope Intro Screen */}
-      {!isEnvelopeOpen && (
+      {(!config.siteLockEnabled || isSiteUnlocked) && !isEnvelopeOpen && (
         <EnvelopeIntro
           config={config}
           onOpen={() => setIsEnvelopeOpen(true)}
@@ -143,18 +158,20 @@ export default function App() {
         </div>
       </footer>
 
-      {/* Floating Quick Customize Studio Trigger Button (Bottom Left) */}
-      <div className="fixed bottom-5 left-5 z-40 flex flex-col items-start gap-2">
-        <button
-          type="button"
-          onClick={() => setIsCustomizerOpen(true)}
-          title="Open Customizer & Settings Studio"
-          className="group flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-rose-600 via-pink-600 to-amber-600 text-white font-semibold text-xs sm:text-sm shadow-[0_8px_25px_rgba(225,29,72,0.5)] hover:shadow-[0_10px_30px_rgba(225,29,72,0.8)] border border-white/20 hover:scale-105 active:scale-95 transition-all cursor-pointer"
-        >
-          <Wand2 className="w-4 h-4 animate-spin-slow" />
-          <span>Customize Surprise ⚙️</span>
-        </button>
-      </div>
+      {/* Floating Quick Customize Studio Trigger Button (Bottom Left - visible once unlocked) */}
+      {(!config.siteLockEnabled || isSiteUnlocked) && (
+        <div className="fixed bottom-5 left-5 z-40 flex flex-col items-start gap-2">
+          <button
+            type="button"
+            onClick={() => setIsCustomizerOpen(true)}
+            title="Open Customizer & Settings Studio"
+            className="group flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-rose-600 via-pink-600 to-amber-600 text-white font-semibold text-xs sm:text-sm shadow-[0_8px_25px_rgba(225,29,72,0.5)] hover:shadow-[0_10px_30px_rgba(225,29,72,0.8)] border border-white/20 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+          >
+            <Wand2 className="w-4 h-4 animate-spin-slow" />
+            <span>Customize Surprise ⚙️</span>
+          </button>
+        </div>
+      )}
 
       {/* Audio Controller (Music Box Melody, YouTube Music, or Uploaded Songs & SFX) */}
       <AudioController config={config} />

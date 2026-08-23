@@ -40,6 +40,8 @@ export type ThemeType =
 
 
 export interface BirthdayConfig {
+  siteLockEnabled?: boolean;
+  siteLockPassword?: string;
   recipientName: string;
   recipientNickname: string;
   senderName: string;
