@@ -140,6 +140,38 @@ export function getThemeStyles(theme?: ThemeType): ThemeStyles {
         accentBtnGradient: 'from-purple-600 via-fuchsia-600 to-pink-600',
       };
 
+    case 'sensual-passion':
+      return {
+        canvasBg: 'bg-gradient-to-b from-[#13010b] via-[#210214] to-[#0a0006]',
+        isDark: true,
+        heroTitleGradient: 'from-rose-100 via-pink-100 to-amber-200',
+        nameGlowClass: 'font-glow-sensual',
+        nameGradient: 'from-rose-500 via-pink-400 to-amber-300',
+        subtitleColor: 'text-rose-200/95 drop-shadow-md font-semibold tracking-wide',
+        sectionHeaderGradient: 'from-rose-100 via-pink-200 to-amber-200',
+        sectionSubtitleColor: 'text-pink-300/90 font-medium',
+        cardBg: 'bg-[#18030e]/90 backdrop-blur-xl',
+        cardBorder: 'border-pink-500/35 hover:border-rose-400/80 shadow-[0_12px_45px_rgba(244,63,94,0.25)] hover:shadow-[0_15px_55px_rgba(244,63,94,0.45)]',
+        cardTitleColor: 'text-rose-100 font-bold',
+        cardBodyColor: 'text-stone-200',
+        cardMutedColor: 'text-pink-300/80',
+        cardHighlightBg: 'bg-pink-950/75 border-pink-700/50 shadow-inner',
+        letterPaperBg: 'bg-[#1a0410]/95',
+        letterPaperBorder: 'border-rose-500/50 shadow-[0_0_55px_rgba(244,63,94,0.38)]',
+        letterTitleColor: 'text-rose-100 font-bold',
+        letterBodyColor: 'text-stone-100 leading-relaxed',
+        letterSignatureColor: 'text-rose-400 font-glow-sensual',
+        counterNumberColor: 'text-rose-400 font-glow-sensual',
+        counterLabelColor: 'text-pink-200 font-semibold',
+        counterCardBg: 'bg-[#290417]/85 border-pink-700/60 shadow-[inset_0_2px_12px_rgba(0,0,0,0.6)]',
+        badgeBg: 'bg-gradient-to-r from-rose-950/95 via-pink-950/95 to-purple-950/95',
+        badgeText: 'text-rose-200 font-bold tracking-wide',
+        badgeBorder: 'border-rose-400/60 shadow-[0_0_20px_rgba(244,63,94,0.5)]',
+        glowColor: 'rgba(244, 63, 94, 0.75)',
+        sparkleColor: '#fb7185',
+        accentBtnGradient: 'from-rose-600 via-pink-600 to-amber-500 shadow-[0_0_30px_rgba(244,63,94,0.6)]',
+      };
+
     case 'sunset':
       return {
         canvasBg: 'bg-gradient-to-b from-[#fffaf0] via-[#ffedd5] to-[#fed7aa]',

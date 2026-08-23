@@ -259,10 +259,17 @@ export function loadSavedConfig(): BirthdayConfig {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
+      // Ensure customization password defaults to HoneyBunny
+      const custPass =
+        parsed.customizationPassword && parsed.customizationPassword !== 'Merijaan'
+          ? parsed.customizationPassword
+          : 'HoneyBunny';
+
       return {
         ...DEFAULT_BIRTHDAY_CONFIG,
         ...parsed,
-        customizationPassword: parsed.customizationPassword || 'HoneyBunny',
+        siteLockPassword: parsed.siteLockPassword || 'Merijaan',
+        customizationPassword: custPass,
       };
     }
   } catch (e) {
@@ -285,10 +292,16 @@ export async function initPersistentStorage(onLoaded: (config: BirthdayConfig) =
 
   const idbConfig = await loadFromIndexedDB();
   if (idbConfig && idbConfig.recipientName) {
+    const custPass =
+      idbConfig.customizationPassword && idbConfig.customizationPassword !== 'Merijaan'
+        ? idbConfig.customizationPassword
+        : 'HoneyBunny';
+
     const merged: BirthdayConfig = {
       ...DEFAULT_BIRTHDAY_CONFIG,
       ...idbConfig,
-      customizationPassword: idbConfig.customizationPassword || 'HoneyBunny',
+      siteLockPassword: idbConfig.siteLockPassword || 'Merijaan',
+      customizationPassword: custPass,
     };
     onLoaded(merged);
   }

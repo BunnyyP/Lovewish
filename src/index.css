@@ -82,6 +82,77 @@
   }
 }
 
+@keyframes textGlowPulseSensual {
+  0%, 100% {
+    filter: drop-shadow(0 0 10px rgba(244, 63, 94, 0.75)) drop-shadow(0 0 22px rgba(219, 39, 119, 0.55)) drop-shadow(0 0 36px rgba(245, 158, 11, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 22px rgba(244, 63, 94, 1)) drop-shadow(0 0 42px rgba(219, 39, 119, 0.9)) drop-shadow(0 0 60px rgba(245, 158, 11, 0.75));
+  }
+}
+
+@keyframes sensualLightSweep {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 300% 0;
+  }
+}
+
+@keyframes coupleHeartbeatRhythm {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  14% {
+    transform: scale(1.18);
+    opacity: 1;
+    filter: drop-shadow(0 0 20px rgba(244, 63, 94, 0.9));
+  }
+  28% {
+    transform: scale(1.04);
+    opacity: 0.9;
+  }
+  42% {
+    transform: scale(1.24);
+    opacity: 1;
+    filter: drop-shadow(0 0 30px rgba(225, 29, 72, 1));
+  }
+  60% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+}
+
+@keyframes sensualAuraBreathe {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes silkRibbonFlow {
+  0% {
+    transform: translateY(110vh) translateX(-50px) rotate(0deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.45;
+  }
+  80% {
+    opacity: 0.45;
+  }
+  100% {
+    transform: translateY(-20vh) translateX(60px) rotate(360deg);
+    opacity: 0;
+  }
+}
+
 @keyframes textGlowPulseEmerald {
   0%, 100% {
     filter: drop-shadow(0 0 10px rgba(52, 211, 153, 0.6)) drop-shadow(0 0 20px rgba(16, 185, 129, 0.4));
@@ -181,6 +252,18 @@
 
 .font-glow-crimson {
   animation: textGlowPulseCrimson 2.8s infinite ease-in-out;
+}
+
+.font-glow-sensual {
+  animation: textGlowPulseSensual 2.2s infinite ease-in-out;
+}
+
+.animate-couple-heartbeat {
+  animation: coupleHeartbeatRhythm 1.4s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+
+.animate-sensual-breathe {
+  animation: sensualAuraBreathe 3.5s infinite ease-in-out;
 }
 
 .font-glow-emerald {

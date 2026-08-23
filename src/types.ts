@@ -29,6 +29,7 @@ export type ThemeType =
   | 'couple-love'
   | 'surprise'
   | 'midnight'
+  | 'sensual-passion'
   | 'sunset'
   | 'crimson'
   | 'emerald'

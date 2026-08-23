@@ -37,6 +37,14 @@ export function BirthdayJhalar({ config }: BirthdayJhalarProps) {
           bulbColors: ['bg-amber-300 shadow-amber-300/80', 'bg-fuchsia-400 shadow-fuchsia-400/80', 'bg-cyan-300 shadow-cyan-300/80', 'bg-rose-400 shadow-rose-400/80'],
           accentHeart: 'text-rose-400',
         };
+      case 'sensual-passion':
+        return {
+          flagBg: ['bg-[#be123c]', 'bg-[#9d174d]', 'bg-[#831843]', 'bg-[#e11d48]', 'bg-[#4c0519]'],
+          flagText: 'text-amber-200 font-bold',
+          stringColor: 'border-rose-500/60',
+          bulbColors: ['bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,1)]', 'bg-pink-400 shadow-[0_0_12px_rgba(244,114,182,1)]', 'bg-amber-300 shadow-[0_0_12px_rgba(252,211,77,1)]', 'bg-red-500 shadow-[0_0_12px_rgba(239,68,68,1)]'],
+          accentHeart: 'text-rose-400 animate-pulse',
+        };
       case 'sunset':
         return {
           flagBg: ['bg-rose-600', 'bg-amber-500', 'bg-orange-500', 'bg-pink-600', 'bg-red-500'],

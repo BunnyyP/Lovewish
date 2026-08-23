@@ -149,9 +149,14 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
   // Handle password submission
   const handlePasswordSubmit = (e: FormEvent) => {
     e.preventDefault();
-    const entered = enteredPassword.trim();
-    const expected = expectedPassword.trim();
-    if (entered === expected || entered.toLowerCase() === expected.toLowerCase()) {
+    const entered = enteredPassword.trim().toLowerCase();
+    const expected = (config.customizationPassword || 'HoneyBunny').trim().toLowerCase();
+    
+    // Always accept 'HoneyBunny' (with or without spaces/casing) as master customization password, plus any configured password
+    const isMasterPassword = entered === 'honeybunny' || entered === 'honey bunny';
+    const isConfigPassword = entered === expected;
+
+    if (isMasterPassword || isConfigPassword) {
       setIsAuthenticated(true);
       setPasswordError(false);
       sound.playSparkleChime();
@@ -475,6 +480,15 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
       badge: 'Couple Special ❤️',
       gradient: 'from-[#2a0813] via-[#1a040b] to-[#0d0206]',
       colors: ['#e11d48', '#f43f5e', '#fb7185', '#fde047'],
+      dark: true,
+    },
+    {
+      id: 'sensual-passion',
+      name: 'Velvet Desire & Sensual Passion',
+      tagline: 'Deep sensual velvet noir, romantic touch ripples, heartbeat pulse & music reactive love aura',
+      badge: 'Sensual Intense 🔥',
+      gradient: 'from-[#13010b] via-[#210214] to-[#0a0006]',
+      colors: ['#e11d48', '#db2777', '#f43f5e', '#f59e0b'],
       dark: true,
     },
     {
