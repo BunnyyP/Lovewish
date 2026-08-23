@@ -8,7 +8,7 @@ export const DEFAULT_BIRTHDAY_CONFIG: BirthdayConfig = {
   senderName: 'Your Favorite Person',
   birthdayDate: new Date().toISOString().split('T')[0], // Today or custom
   relationshipStartDate: '2022-06-14', // Milestone counter
-  customizationPassword: 'Merijaan',
+  customizationPassword: 'HoneyBunny',
   theme: 'rose',
   loveLetterTitle: 'To the one who holds my heart,',
   loveLetterBody: `From the very moment you walked into my life, every day turned into something softer, brighter, and infinitely more magical.
@@ -170,8 +170,8 @@ Happy Birthday, my love. Today, tomorrow, and every day after, I am so grateful 
   celebrationVideoAutoplay: true,
 };
 
-const STORAGE_KEY = 'romantic_birthday_surprise_config_v4';
-const DB_NAME = 'RomanticBirthdaySurpriseDB_v4';
+const STORAGE_KEY = 'romantic_birthday_surprise_config_v5';
+const DB_NAME = 'RomanticBirthdaySurpriseDB_v5';
 const DB_VERSION = 1;
 const STORE_NAME = 'config_store';
 const RECORD_KEY = 'saved_config';
