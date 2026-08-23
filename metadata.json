@@ -1,0 +1,6 @@
+{
+  "name": "Romantic Birthday Surprise",
+  "description": "An interactive, heartfelt birthday surprise website for couples and loved ones featuring wax envelope reveal, blowable interactive cake candles, polaroid memory clothesline, love jar, romantic coupons, gift unwrapping, and customizable love notes.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
