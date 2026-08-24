@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Heart, Sparkles, Flame, Music, Volume2, Activity } from 'lucide-react';
 import { BirthdayConfig } from '../types';
@@ -26,6 +26,19 @@ interface TouchRipple {
   y: number;
 }
 
+interface RainItem {
+  id: number;
+  left: number; // percentage 0-100
+  size: number;
+  duration: number; // seconds
+  delay: number; // seconds
+  type: 'heart' | 'rose-petal' | 'kiss' | 'sparkle' | 'ruby-drop';
+  color: string;
+  opacity: number;
+  rotationStart: number;
+  swayWidth: number;
+}
+
 const ROMANTIC_WHISPERS = [
   '“In your eyes, I found my eternity and my home...”',
   '“Every beat of my heart quietly whispers your name...”',
@@ -46,6 +59,38 @@ export function RomanticSensualOverlay({ config }: RomanticSensualOverlayProps) 
   const [isMusicActive, setIsMusicActive] = useState(() => sound.getIsPlaying());
   const [bpmCounter, setBpmCounter] = useState(68);
   const holdTimerRef = useRef<number | null>(null);
+
+  // Pre-generate slow falling heart rain drops with diverse paths
+  const rainDrops: RainItem[] = useMemo(() => {
+    const items: RainItem[] = [];
+    const colors = ['#f43f5e', '#fb7185', '#fda4af', '#fde047', '#e11d48', '#db2777', '#f472b6'];
+    const types: ('heart' | 'rose-petal' | 'kiss' | 'sparkle' | 'ruby-drop')[] = [
+      'heart',
+      'heart',
+      'heart',
+      'rose-petal',
+      'rose-petal',
+      'kiss',
+      'sparkle',
+      'ruby-drop',
+    ];
+
+    for (let i = 0; i < 38; i++) {
+      items.push({
+        id: i,
+        left: Math.random() * 98,
+        size: Math.floor(Math.random() * 16) + 12,
+        duration: Math.random() * 6 + 7, // 7s to 13s for slow, graceful falling
+        delay: Math.random() * 10,
+        type: types[Math.floor(Math.random() * types.length)],
+        color: colors[Math.floor(Math.random() * colors.length)],
+        opacity: Math.random() * 0.45 + 0.35,
+        rotationStart: Math.floor(Math.random() * 360),
+        swayWidth: Math.random() * 40 - 20,
+      });
+    }
+    return items;
+  }, []);
 
   // Subscribe to sound playback for reactive beat animations
   useEffect(() => {
@@ -72,7 +117,7 @@ export function RomanticSensualOverlay({ config }: RomanticSensualOverlayProps) 
     return () => clearInterval(interval);
   }, []);
 
-  // Spawn Touch Particles
+  // Spawn Touch Particles (Completely SILENT, no sound on touch)
   const spawnParticlesAt = useCallback((x: number, y: number, count = 4) => {
     const particleTypes: ('heart' | 'kiss' | 'spark' | 'flame' | 'petal')[] = [
       'heart',
@@ -86,7 +131,7 @@ export function RomanticSensualOverlay({ config }: RomanticSensualOverlayProps) 
     const newParticles: TouchParticle[] = [];
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const speed = Math.random() * 4 + 2;
+      const speed = Math.random() * 3.5 + 1.5;
       newParticles.push({
         id: Date.now() + Math.random() * 1000 + i,
         x,
@@ -95,14 +140,14 @@ export function RomanticSensualOverlay({ config }: RomanticSensualOverlayProps) 
         size: Math.random() * 16 + 12,
         color: colors[Math.floor(Math.random() * colors.length)],
         vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 2,
+        vy: Math.sin(angle) * speed - 1.5,
         rotation: (Math.random() - 0.5) * 60,
       });
     }
 
-    setTouchParticles((prev) => [...prev.slice(-30), ...newParticles]);
+    setTouchParticles((prev) => [...prev.slice(-35), ...newParticles]);
 
-    // Spawn expanding ripple ring
+    // Spawn expanding silent ripple ring
     const rippleId = Date.now() + Math.random();
     setTouchRipples((prev) => [...prev.slice(-8), { id: rippleId, x, y }]);
     setTimeout(() => {
@@ -110,10 +155,9 @@ export function RomanticSensualOverlay({ config }: RomanticSensualOverlayProps) 
     }, 1200);
   }, []);
 
-  // Global Touch & Pointer Listeners
+  // Global Touch & Pointer Listeners (Zero audio, smooth visual feedback)
   useEffect(() => {
     const handlePointerDown = (e: PointerEvent) => {
-      // Don't intercept interactive buttons/inputs aggressively
       const target = e.target as HTMLElement;
       if (
         target.tagName === 'INPUT' ||
@@ -126,17 +170,12 @@ export function RomanticSensualOverlay({ config }: RomanticSensualOverlayProps) 
       spawnParticlesAt(e.clientX, e.clientY, 5);
       setHoldPosition({ x: e.clientX, y: e.clientY });
       setIsHolding(true);
-
-      // Trigger subtle romantic chime occasionally
-      if (Math.random() > 0.6) {
-        sound.playSparkleChime();
-      }
     };
 
     const handlePointerMove = (e: PointerEvent) => {
       if (isHolding) {
         setHoldPosition({ x: e.clientX, y: e.clientY });
-        if (Math.random() > 0.7) {
+        if (Math.random() > 0.75) {
           spawnParticlesAt(e.clientX, e.clientY, 1);
         }
       }
@@ -178,20 +217,147 @@ export function RomanticSensualOverlay({ config }: RomanticSensualOverlayProps) 
 
   return (
     <div className="fixed inset-0 pointer-events-none z-30 overflow-hidden select-none">
-      {/* 1. Ambient Candlelit Screen Edge Vignette & Heartbeat Beat Pulse */}
+      {/* 1. Ambient Candlelit Screen Edge Vignette & Heartbeat Pulse */}
       <div
         className={`absolute inset-0 transition-opacity duration-1000 ${
-          isMusicActive ? 'opacity-90' : 'opacity-60'
+          isMusicActive ? 'opacity-95' : 'opacity-65'
         }`}
       >
-        {/* Deep romantic corner glows */}
-        <div className="absolute top-0 inset-x-0 h-40 bg-gradient-to-b from-rose-950/40 to-transparent animate-sensual-breathe" />
-        <div className="absolute bottom-0 inset-x-0 h-44 bg-gradient-to-t from-rose-950/60 via-pink-950/20 to-transparent" />
-        <div className="absolute inset-y-0 left-0 w-28 bg-gradient-to-r from-rose-950/30 to-transparent" />
-        <div className="absolute inset-y-0 right-0 w-28 bg-gradient-to-l from-rose-950/30 to-transparent" />
+        <div className="absolute top-0 inset-x-0 h-44 bg-gradient-to-b from-rose-950/45 to-transparent animate-sensual-breathe" />
+        <div className="absolute bottom-0 inset-x-0 h-48 bg-gradient-to-t from-rose-950/65 via-pink-950/25 to-transparent" />
+        <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-rose-950/35 to-transparent" />
+        <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-rose-950/35 to-transparent" />
       </div>
 
-      {/* 2. Rhythmic Couple Heartbeat Glowing Rings (Centered or Dynamic) */}
+      {/* 2. Continuous Slow Heart Rain & Romantic Petals Shower Layer */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {rainDrops.map((drop) => (
+          <div
+            key={drop.id}
+            className="absolute top-0 animate-heart-rain pointer-events-none flex items-center justify-center filter drop-shadow-[0_0_8px_rgba(244,63,94,0.65)]"
+            style={{
+              left: `${drop.left}%`,
+              animationDuration: `${drop.duration}s`,
+              animationDelay: `${drop.delay}s`,
+              opacity: drop.opacity,
+              width: `${drop.size}px`,
+              height: `${drop.size}px`,
+            }}
+          >
+            {drop.type === 'heart' && (
+              <Heart
+                className="w-full h-full fill-rose-500 text-pink-300"
+                style={{ color: drop.color }}
+              />
+            )}
+            {drop.type === 'rose-petal' && (
+              <div className="w-full h-full rounded-full bg-gradient-to-br from-rose-500 to-pink-400 rounded-tr-[90%] transform rotate-45 shadow-sm" />
+            )}
+            {drop.type === 'kiss' && (
+              <span className="text-sm select-none leading-none opacity-85">💋</span>
+            )}
+            {drop.type === 'sparkle' && (
+              <Sparkles className="w-full h-full text-amber-300 fill-amber-200 star-sparkle-anim" />
+            )}
+            {drop.type === 'ruby-drop' && (
+              <div className="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-rose-600 to-amber-300 shadow-[0_0_8px_rgba(244,63,94,0.9)] animate-pulse" />
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* 3. Live Animated Romantic Dancing Couple Live Silhouette Backdrop */}
+      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 sm:bottom-16 sm:left-20 sm:translate-x-0 pointer-events-none opacity-30 hover:opacity-50 transition-opacity duration-1000 z-10">
+        <div className="relative w-44 sm:w-56 h-56 sm:h-72 flex items-end justify-center">
+          {/* Couple Ambient Backlight Glow */}
+          <div className="absolute bottom-6 w-36 h-36 rounded-full bg-gradient-to-t from-rose-600/35 via-pink-500/20 to-amber-400/20 blur-2xl animate-sensual-breathe" />
+
+          {/* Dancing Couple Silhouette SVG */}
+          <div className="relative animate-couple-dance transform-gpu origin-bottom">
+            <svg
+              viewBox="0 0 200 240"
+              className="w-40 sm:w-52 h-52 sm:h-64 filter drop-shadow-[0_0_20px_rgba(244,63,94,0.85)]"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <defs>
+                <linearGradient id="coupleGlowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#fde047" stopOpacity="0.9" />
+                  <stop offset="30%" stopColor="#f43f5e" stopOpacity="0.95" />
+                  <stop offset="70%" stopColor="#db2777" stopOpacity="0.85" />
+                  <stop offset="100%" stopColor="#831843" stopOpacity="0.9" />
+                </linearGradient>
+                <linearGradient id="dressFlowGrad" x1="0%" y1="0%" x2="50%" y2="100%">
+                  <stop offset="0%" stopColor="#fb7185" stopOpacity="0.9" />
+                  <stop offset="50%" stopColor="#e11d48" stopOpacity="0.8" />
+                  <stop offset="100%" stopColor="#4c0519" stopOpacity="0.9" />
+                </linearGradient>
+              </defs>
+
+              {/* Glowing Aura Base */}
+              <ellipse cx="100" cy="225" rx="55" ry="8" fill="url(#coupleGlowGrad)" opacity="0.35" />
+
+              {/* Partner 1 (Heads & Embrace) */}
+              <circle cx="88" cy="48" r="14" fill="url(#coupleGlowGrad)" />
+              <path
+                d="M80 62 C70 80, 68 110, 72 140 L88 140 L92 90 L102 75 Z"
+                fill="url(#coupleGlowGrad)"
+              />
+              {/* Partner 1 Legs */}
+              <path
+                d="M72 140 L70 220 L80 220 L85 145 Z M85 145 L88 220 L98 220 L94 140 Z"
+                fill="#831843"
+              />
+
+              {/* Partner 2 (Romantic Flowing Gown & Embrace) */}
+              <circle cx="112" cy="54" r="12" fill="url(#coupleGlowGrad)" />
+              {/* Upper Body & Arching Back */}
+              <path
+                d="M102 66 C115 72, 122 88, 118 108 C108 108, 98 100, 92 88 Z"
+                fill="url(#coupleGlowGrad)"
+              />
+              {/* Entwined Arms & Tender Dance Hold */}
+              <path
+                d="M82 72 C92 82, 110 82, 120 74 C116 82, 102 92, 86 80 Z"
+                fill="url(#coupleGlowGrad)"
+                opacity="0.9"
+              />
+              <path
+                d="M92 88 C105 105, 125 102, 132 94 C124 110, 102 112, 88 94 Z"
+                fill="url(#dressFlowGrad)"
+              />
+
+              {/* Flowing Waltz Gown (Layer 1) */}
+              <path
+                d="M105 108 C115 130, 142 165, 155 220 C130 226, 95 222, 75 220 C82 170, 95 135, 105 108 Z"
+                fill="url(#dressFlowGrad)"
+              />
+              {/* Flowing Waltz Gown Edge Highlights */}
+              <path
+                d="M110 115 C125 145, 150 185, 158 220 C145 224, 115 222, 90 220 C102 180, 112 145, 110 115 Z"
+                fill="#f43f5e"
+                opacity="0.4"
+              />
+
+              {/* Little Floating Star/Heart above couple */}
+              <path
+                d="M100 24 C100 24, 94 16, 88 20 C82 24, 88 32, 100 38 C112 32, 118 24, 112 20 C106 16, 100 24, 100 24 Z"
+                fill="#fde047"
+                className="animate-pulse"
+              />
+            </svg>
+          </div>
+
+          {/* Couple Dance Romantic Caption */}
+          <div className="absolute -bottom-6 inset-x-0 text-center pointer-events-none">
+            <span className="font-serif-romantic italic text-[11px] text-pink-200/80 tracking-wider">
+              Forever Dancing Together ♥
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Rhythmic Couple Heartbeat Glowing Rings */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
         <motion.div
           animate={{
@@ -207,8 +373,8 @@ export function RomanticSensualOverlay({ config }: RomanticSensualOverlayProps) 
         />
       </div>
 
-      {/* 3. Drifting Translucent Romantic Silk Ribbons */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-35">
+      {/* 5. Drifting Translucent Romantic Silk Ribbons */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-30">
         {[...Array(4)].map((_, i) => (
           <div
             key={i}
@@ -222,7 +388,7 @@ export function RomanticSensualOverlay({ config }: RomanticSensualOverlayProps) 
         ))}
       </div>
 
-      {/* 4. Touch Reactive Ripples */}
+      {/* 6. Silent Touch Reactive Expanding Ripples */}
       {touchRipples.map((r) => (
         <motion.div
           key={r.id}
@@ -236,7 +402,7 @@ export function RomanticSensualOverlay({ config }: RomanticSensualOverlayProps) 
         />
       ))}
 
-      {/* 5. Touch Reactive Floating Particles (Hearts, Kisses, Embers, Petals) */}
+      {/* 7. Silent Touch Reactive Floating Particles */}
       <AnimatePresence>
         {touchParticles.map((p) => (
           <motion.div
@@ -282,7 +448,7 @@ export function RomanticSensualOverlay({ config }: RomanticSensualOverlayProps) 
         ))}
       </AnimatePresence>
 
-      {/* 6. Hold & Touch "Couple Soulmate Heartbeat" Concentric Aura */}
+      {/* 8. Silent Hold & Touch "Couple Soulmate Heartbeat" Aura */}
       {isHolding && holdPosition && (
         <motion.div
           initial={{ scale: 0.3, opacity: 0 }}
@@ -301,7 +467,7 @@ export function RomanticSensualOverlay({ config }: RomanticSensualOverlayProps) 
         </motion.div>
       )}
 
-      {/* 7. Floating Animated Couple Romantic Whisper Banner (Top Center) */}
+      {/* 9. Floating Animated Couple Romantic Whisper Banner (Top Center) */}
       <div className="fixed top-4 inset-x-0 flex justify-center z-20 pointer-events-none px-4">
         <AnimatePresence mode="wait">
           <motion.div
@@ -321,7 +487,7 @@ export function RomanticSensualOverlay({ config }: RomanticSensualOverlayProps) 
         </AnimatePresence>
       </div>
 
-      {/* 8. Live Couple Heartbeat & Beat Reactive Audio Monitor (Bottom Right Float) */}
+      {/* 10. Live Couple Heartbeat & Beat Reactive Audio Monitor (Bottom Right Float) */}
       <div className="fixed bottom-5 right-5 z-40 pointer-events-auto">
         <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#18030e]/90 border border-rose-500/40 backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.6)] text-rose-200">
           <div className="relative flex items-center justify-center">

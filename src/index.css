@@ -153,6 +153,54 @@
   }
 }
 
+@keyframes coupleSlowDance {
+  0%, 100% {
+    transform: translateY(0px) rotate(-1.5deg) scale(1);
+    filter: drop-shadow(0 0 25px rgba(244, 63, 94, 0.75)) drop-shadow(0 0 50px rgba(219, 39, 119, 0.4));
+  }
+  25% {
+    transform: translateY(-4px) rotate(1deg) scale(1.02);
+    filter: drop-shadow(0 0 35px rgba(244, 63, 94, 0.95)) drop-shadow(0 0 65px rgba(245, 158, 11, 0.5));
+  }
+  50% {
+    transform: translateY(2px) rotate(2deg) scale(1.01);
+    filter: drop-shadow(0 0 30px rgba(225, 29, 72, 0.85)) drop-shadow(0 0 60px rgba(219, 39, 119, 0.5));
+  }
+  75% {
+    transform: translateY(-3px) rotate(-0.5deg) scale(1.03);
+    filter: drop-shadow(0 0 40px rgba(244, 63, 94, 1)) drop-shadow(0 0 75px rgba(244, 114, 182, 0.6));
+  }
+}
+
+@keyframes heartRainFall {
+  0% {
+    transform: translateY(-10vh) translateX(0) rotate(0deg) scale(0.8);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.85;
+  }
+  50% {
+    transform: translateY(50vh) translateX(25px) rotate(180deg) scale(1.1);
+    opacity: 0.95;
+  }
+  85% {
+    opacity: 0.75;
+  }
+  100% {
+    transform: translateY(112vh) translateX(-20px) rotate(360deg) scale(0.9);
+    opacity: 0;
+  }
+}
+
+.animate-couple-dance {
+  animation: coupleSlowDance 7s infinite ease-in-out;
+}
+
+.animate-heart-rain {
+  animation: heartRainFall 9s infinite linear;
+}
+
 @keyframes textGlowPulseEmerald {
   0%, 100% {
     filter: drop-shadow(0 0 10px rgba(52, 211, 153, 0.6)) drop-shadow(0 0 20px rgba(16, 185, 129, 0.4));
