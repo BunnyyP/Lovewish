@@ -729,10 +729,10 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="bg-emerald-500 text-white px-3 py-1.5 text-xs font-semibold flex items-center justify-center gap-1.5 shrink-0"
+                className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-3.5 py-2 text-xs font-semibold flex items-center justify-center gap-2 shrink-0 shadow-inner"
               >
-                <Check className="w-3.5 h-3.5" />
-                <span>Saved successfully! Website content updated.</span>
+                <Check className="w-4 h-4 text-emerald-100" />
+                <span>Saved globally! All visitors from anywhere will now see these changes. ✨</span>
               </motion.div>
             )}
           </AnimatePresence>

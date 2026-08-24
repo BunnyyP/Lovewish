@@ -280,16 +280,87 @@ export function loadSavedConfig(): BirthdayConfig {
 }
 
 /**
- * Asynchronously initialize persistent storage from IndexedDB.
- * This guarantees that even massive uploaded audio (.mp3) files, YouTube links,
- * or video files are restored on every single app launch without quota issues.
+ * Fetches the global configuration from the central server (/api/config).
+ * This ensures that whenever any person visits the site from any device/browser,
+ * they immediately see the exact customization saved by the creator.
+ */
+export async function fetchGlobalConfig(): Promise<BirthdayConfig | null> {
+  try {
+    const res = await fetch('/api/config');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.config && data.config.recipientName) {
+        return data.config as BirthdayConfig;
+      }
+    }
+  } catch (err) {
+    console.warn('Could not fetch server global config:', err);
+  }
+  return null;
+}
+
+/**
+ * Saves configuration globally to the backend server (/api/config)
+ * so that any visitor from any location/device sees this saved version.
+ */
+export async function saveConfigToServer(config: BirthdayConfig): Promise<boolean> {
+  try {
+    const res = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return Boolean(data.success);
+    }
+  } catch (err) {
+    console.warn('Failed to save config to server:', err);
+  }
+  return false;
+}
+
+/**
+ * Asynchronously initialize persistent storage from the central server (/api/config),
+ * then falls back to IndexedDB and localStorage.
+ * This guarantees that changes saved in Customization are globally visible to ALL visitors!
  */
 export async function initPersistentStorage(onLoaded: (config: BirthdayConfig) => void): Promise<void> {
-  // If URL hash was provided, hash takes priority
-  if (window.location.hash && window.location.hash.startsWith('#data=')) {
+  // If URL hash was provided, hash takes priority for custom direct links
+  if (typeof window !== 'undefined' && window.location.hash && window.location.hash.startsWith('#data=')) {
     return;
   }
 
+  // 1. First priority: Check central server for the global customized surprise configuration
+  try {
+    const serverConfig = await fetchGlobalConfig();
+    if (serverConfig && serverConfig.recipientName) {
+      const custPass =
+        serverConfig.customizationPassword && serverConfig.customizationPassword !== 'Merijaan'
+          ? serverConfig.customizationPassword
+          : 'HoneyBunny';
+
+      const merged: BirthdayConfig = {
+        ...DEFAULT_BIRTHDAY_CONFIG,
+        ...serverConfig,
+        siteLockPassword: serverConfig.siteLockPassword || 'Merijaan',
+        customizationPassword: custPass,
+      };
+
+      // Cache locally as well
+      saveToIndexedDB(merged);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      } catch {}
+
+      onLoaded(merged);
+      return;
+    }
+  } catch (e) {
+    console.warn('Server fetch check skipped:', e);
+  }
+
+  // 2. Second priority: Fall back to high-capacity IndexedDB
   const idbConfig = await loadFromIndexedDB();
   if (idbConfig && idbConfig.recipientName) {
     const custPass =
@@ -308,21 +379,24 @@ export async function initPersistentStorage(onLoaded: (config: BirthdayConfig) =
 }
 
 /**
- * Saves the configuration permanently to BOTH IndexedDB (unlimited capacity for audio/video)
- * and localStorage (for instant synchronous boot).
+ * Saves the configuration permanently:
+ * 1. Sends to Server (/api/config) so ALL visitors from ANY device see this configuration
+ * 2. Saves to IndexedDB (for full capacity)
+ * 3. Saves to localStorage (for fast boot cache)
  */
 export function saveConfig(config: BirthdayConfig) {
-  // 1. Save to high-capacity IndexedDB
+  // 1. Save globally to central server for all visitors
+  saveConfigToServer(config);
+
+  // 2. Save to high-capacity IndexedDB
   saveToIndexedDB(config);
 
-  // 2. Save to localStorage (with fallback if audio/video base64 is too large for 5MB limit)
+  // 3. Save to localStorage (with fallback if audio/video base64 is too large for 5MB limit)
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
   } catch (e) {
     console.warn('localStorage quota exceeded (likely due to large audio/video base64). Saving lightweight copy to localStorage while full file is safe in IndexedDB.');
     try {
-      // Create lightweight copy without the gigantic base64 strings for localStorage,
-      // while IndexedDB retains the full audio/video data.
       const lightweight = {
         ...config,
         musicAudioUrl: config.musicAudioUrl?.startsWith('data:') ? '' : config.musicAudioUrl,
