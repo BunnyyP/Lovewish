@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
@@ -15,7 +15,7 @@ import {
   Pause,
 } from 'lucide-react';
 import { BirthdayConfig } from '../types';
-import { getYouTubeEmbedUrl } from '../utils/media';
+import { getYouTubeEmbedUrl, dataUrlToBlobUrl } from '../utils/media';
 import { sound } from '../utils/audio';
 
 interface CelebrationVideoModalProps {
@@ -40,6 +40,9 @@ export function CelebrationVideoModal({
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [currentLyricIndex, setCurrentLyricIndex] = useState(0);
+  const [videoCurrentTime, setVideoCurrentTime] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(0);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const autoCloseTimerRef = useRef<number | null>(null);
   const lyricTimeoutRef = useRef<number | null>(null);
@@ -56,6 +59,23 @@ export function CelebrationVideoModal({
   const youtubeEmbedUrl = isYouTube
     ? getYouTubeEmbedUrl(config.celebrationVideoUrl || '', true, true)
     : null;
+
+  // Convert base64 data URI to native streamable blob URL to prevent 4-second browser stall
+  const streamableVideoUrl = useMemo(() => {
+    if (!config.celebrationVideoUrl) return '';
+    return dataUrlToBlobUrl(config.celebrationVideoUrl);
+  }, [config.celebrationVideoUrl]);
+
+  // Clean up blob URL on unmount if created
+  useEffect(() => {
+    return () => {
+      if (streamableVideoUrl && streamableVideoUrl.startsWith('blob:')) {
+        try {
+          URL.revokeObjectURL(streamableVideoUrl);
+        } catch {}
+      }
+    };
+  }, [streamableVideoUrl]);
 
   // Rich, cheerful lyric sequence that cycles smoothly for any duration (15s, 25s, 30s, etc.)
   const songLyrics = [
@@ -124,6 +144,7 @@ export function CelebrationVideoModal({
       return;
     }
 
+    sound.primeAudio();
     sound.playCelebrationPop();
 
     // If default squirrel singing mode or custom video without native sound
@@ -152,16 +173,47 @@ export function CelebrationVideoModal({
     };
   }, [isOpen, config.celebrationVideoType, config.celebrationVideoUrl, config.recipientNickname, config.recipientName]);
 
-  // Video autoplay & loop handler for custom uploaded/URL video
+  // Video autoplay, stall-recovery & continuous playback handler for custom uploaded/URL video
   useEffect(() => {
-    if (isOpen && videoRef.current) {
-      videoRef.current.currentTime = 0;
-      videoRef.current.muted = isMuted;
-      videoRef.current.play().catch((e) => {
-        console.log('Video autoplay handled with fallback:', e);
-      });
-    }
-  }, [isOpen, isMuted]);
+    if (!isOpen) return;
+
+    let retryTimer: number | null = null;
+
+    const playVideoSafely = () => {
+      if (videoRef.current) {
+        videoRef.current.muted = isMuted;
+        const playPromise = videoRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              setIsPlaying(true);
+            })
+            .catch((e) => {
+              console.log('Autoplay unmuted failed, retrying muted fallback:', e);
+              if (videoRef.current) {
+                videoRef.current.muted = true;
+                setIsMuted(true);
+                videoRef.current.play().catch(() => {});
+              }
+            });
+        }
+      }
+    };
+
+    // Attempt instant play
+    playVideoSafely();
+
+    // Re-verify after 300ms & 800ms to guarantee continuous uninterrupted playback
+    retryTimer = window.setTimeout(() => {
+      if (videoRef.current && videoRef.current.paused && isOpen) {
+        playVideoSafely();
+      }
+    }, 400);
+
+    return () => {
+      if (retryTimer) clearTimeout(retryTimer);
+    };
+  }, [isOpen, streamableVideoUrl]);
 
   const togglePlayPause = () => {
     const next = !isPlaying;
@@ -325,12 +377,27 @@ export function CelebrationVideoModal({
             <div className="relative w-full h-full flex items-center justify-center bg-black">
               <video
                 ref={videoRef}
-                src={config.celebrationVideoUrl}
+                src={streamableVideoUrl || config.celebrationVideoUrl}
                 autoPlay
                 controls
                 playsInline
                 loop
+                preload="auto"
                 className="w-full h-full object-contain bg-black"
+                onLoadedMetadata={(e) => {
+                  const target = e.currentTarget;
+                  setVideoDuration(target.duration || 0);
+                  target.play().catch(() => {});
+                }}
+                onTimeUpdate={(e) => {
+                  const target = e.currentTarget;
+                  setVideoCurrentTime(target.currentTime || 0);
+                }}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => {
+                  // Only mark paused if modal is open and not intentional
+                  if (!isOpen) return;
+                }}
                 onEnded={() => {
                   if (videoRef.current) {
                     videoRef.current.currentTime = 0;

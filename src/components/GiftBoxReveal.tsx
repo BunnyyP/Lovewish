@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Gift, Heart, Sparkles, Award, Share2, Check, Film, Image as ImageIcon, Maximize2, X, Play, Volume2 } from 'lucide-react';
 import { BirthdayConfig } from '../types';
@@ -6,6 +6,7 @@ import { sound } from '../utils/audio';
 import { fireHeartConfetti, fireFireworks } from '../utils/confetti';
 import { generateShareUrl } from '../utils/storage';
 import { getThemeStyles } from '../utils/themeStyles';
+import { dataUrlToBlobUrl } from '../utils/media';
 
 interface GiftBoxRevealProps {
   config: BirthdayConfig;
@@ -50,6 +51,21 @@ export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) 
   const ytEmbedUrl = mediaType === 'youtube' ? getYouTubeEmbedUrl(config.surpriseBoxYoutubeUrl || config.surpriseBoxMediaUrl) : null;
   const hasYouTube = mediaType === 'youtube' && Boolean(ytEmbedUrl);
   const hasMedia = hasImage || hasVideo || hasYouTube;
+
+  const streamableSurpriseVideoUrl = useMemo(() => {
+    if (!hasVideo || !config.surpriseBoxMediaUrl) return '';
+    return dataUrlToBlobUrl(config.surpriseBoxMediaUrl);
+  }, [hasVideo, config.surpriseBoxMediaUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (streamableSurpriseVideoUrl && streamableSurpriseVideoUrl.startsWith('blob:')) {
+        try {
+          URL.revokeObjectURL(streamableSurpriseVideoUrl);
+        } catch {}
+      }
+    };
+  }, [streamableSurpriseVideoUrl]);
 
   return (
     <section id="gift-reveal" className="py-20 px-4 max-w-4xl mx-auto text-center relative">
@@ -188,10 +204,11 @@ export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) 
                 {hasVideo && config.surpriseBoxMediaUrl && (
                   <div className="relative flex flex-col items-center bg-black">
                     <video
-                      src={config.surpriseBoxMediaUrl}
+                      src={streamableSurpriseVideoUrl || config.surpriseBoxMediaUrl}
                       controls
                       autoPlay={config.surpriseBoxAutoplayVideo !== false}
                       playsInline
+                      preload="auto"
                       className="w-full max-h-[420px] rounded-t-2xl object-contain bg-black shadow-inner"
                     />
                     {config.surpriseBoxMediaCaption && (

@@ -82,6 +82,7 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
   const [tempWishText, setTempWishText] = useState(formData.sealedWish || '');
   const tabsContainerRef = useRef<HTMLDivElement | null>(null);
   const introTimerIntervalRef = useRef<number | null>(null);
+  const prevIsOpenRef = useRef(false);
 
   const TABS: Array<{
     id: 'profile' | 'theme' | 'intro-music' | 'bg-music' | 'video' | 'surprise-box' | 'photos' | 'letter' | 'reasons' | 'coupons' | 'user-activity' | 'share';
@@ -134,10 +135,10 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
     }
   }, [activeTab]);
 
-  // Sync formData when config changes or modal opens
+  // Sync formData safely when modal opens (does not overwrite in-progress edits during an open session)
   useEffect(() => {
-    if (isOpen) {
-      setFormData(config);
+    if (isOpen && !prevIsOpenRef.current) {
+      setFormData({ ...config });
       setEnteredPassword('');
       setPasswordError(false);
       setSaveSuccess(false);
@@ -151,6 +152,7 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
       setTempWishText(config.sealedWish || '');
       setIsEditingWish(false);
     }
+    prevIsOpenRef.current = isOpen;
   }, [isOpen, config]);
 
   // Clean up audio testing when unmounting or switching tabs
@@ -991,6 +993,24 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
                     </h4>
                     <p className="text-[11px] text-stone-500 dark:text-stone-400">
                       Instantly transforms colors, backgrounds, greeting jhalar bunting, and visual aura
+                    </p>
+                  </div>
+                </div>
+
+                {/* THEME INDEPENDENCE ASSURANCE BANNER */}
+                <div className="flex items-center gap-3 p-3 rounded-2xl bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-rose-500/10 border border-purple-500/30 text-purple-950 dark:text-purple-200 shadow-xs">
+                  <div className="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 flex items-center justify-center shrink-0">
+                    <Palette className="w-4 h-4" />
+                  </div>
+                  <div className="text-xs min-w-0">
+                    <p className="font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
+                      <span>Only Theme & Colors Change</span>
+                      <span className="text-[10px] px-2 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-900/70 text-emerald-700 dark:text-emerald-300 font-semibold">
+                        Content 100% Safe
+                      </span>
+                    </p>
+                    <p className="text-[11px] text-stone-600 dark:text-stone-300">
+                      Selecting a new theme only updates the styling and color palette. All your customized text, videos, photos, songs, coupons, and love letters remain completely untouched and preserved.
                     </p>
                   </div>
                 </div>
