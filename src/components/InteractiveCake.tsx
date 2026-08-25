@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, FormEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Sparkles,
@@ -220,11 +220,15 @@ export function InteractiveCake({ config, onSaveWish }: InteractiveCakeProps) {
   };
 
   // Relight all candles
-  const relightCandles = () => {
+  const relightCandles = useCallback(() => {
     sound.playSparkleChime();
     setCandles((prev) => prev.map((c) => ({ ...c, lit: true })));
     setAllBlownOut(false);
-  };
+  }, []);
+
+  const handleCloseVideoModal = useCallback(() => {
+    setIsVideoModalOpen(false);
+  }, []);
 
   // Cut the Cake action
   const handleCutCake = () => {
@@ -824,7 +828,7 @@ export function InteractiveCake({ config, onSaveWish }: InteractiveCakeProps) {
       {/* Celebration Video Modal */}
       <CelebrationVideoModal
         isOpen={isVideoModalOpen}
-        onClose={() => setIsVideoModalOpen(false)}
+        onClose={handleCloseVideoModal}
         config={config}
         onRelightCandles={relightCandles}
       />

@@ -16,16 +16,18 @@ export function FloatingParticles() {
   const [particles, setParticles] = useState<Particle[]>([]);
 
   useEffect(() => {
+    const isMobileOrLowEnd = typeof window !== 'undefined' && (window.innerWidth < 768 || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4));
+    const particleCount = isMobileOrLowEnd ? 16 : 26;
     const items: Particle[] = [];
     const types: ('heart' | 'sparkle' | 'petal' | 'star')[] = ['heart', 'sparkle', 'petal', 'star'];
-    for (let i = 0; i < 28; i++) {
+    for (let i = 0; i < particleCount; i++) {
       items.push({
         id: i,
         x: Math.random() * 100,
         y: Math.random() * 100,
-        size: Math.random() * 14 + 10,
+        size: Math.random() * 12 + 10,
         duration: Math.random() * 12 + 10,
-        delay: Math.random() * 6,
+        delay: Math.random() * 5,
         opacity: Math.random() * 0.4 + 0.2,
         type: types[Math.floor(Math.random() * types.length)],
       });
@@ -34,16 +36,16 @@ export function FloatingParticles() {
   }, []);
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden transform-gpu">
       {particles.map((p) => (
         <motion.div
           key={p.id}
           initial={{ y: '110vh', x: `${p.x}vw`, opacity: 0, rotate: 0 }}
           animate={{
             y: '-10vh',
-            x: `${p.x + (Math.sin(p.id) * 8)}vw`,
+            x: `${p.x + (Math.sin(p.id) * 6)}vw`,
             opacity: [0, p.opacity, p.opacity, 0],
-            rotate: [0, p.id % 2 === 0 ? 360 : -360],
+            rotate: [0, p.id % 2 === 0 ? 180 : -180],
           }}
           transition={{
             duration: p.duration,
@@ -52,7 +54,7 @@ export function FloatingParticles() {
             ease: 'linear',
           }}
           style={{ width: p.size, height: p.size }}
-          className="absolute"
+          className="absolute will-change-transform"
         >
           {p.type === 'heart' && (
             <svg

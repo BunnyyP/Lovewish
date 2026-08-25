@@ -564,13 +564,14 @@ class SoundEngine {
 
   // Cute Chipmunk Happy Birthday vocal song player
   private birthdaySongTimeouts: number[] = [];
+  private wasBgMusicPlayingBeforeBirthdaySong = false;
 
   public stopHappyBirthdaySong() {
     this.birthdaySongTimeouts.forEach((t) => clearTimeout(t));
     this.birthdaySongTimeouts = [];
   }
 
-  public playHappyBirthdaySong() {
+  public playHappyBirthdaySong(loop = true) {
     this.stopHappyBirthdaySong();
     this.initCtx();
     if (!this.ctx) return;
@@ -615,6 +616,9 @@ class SoundEngine {
       const tid = window.setTimeout(() => {
         try {
           if (!this.ctx) return;
+          if (this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(() => {});
+          }
           const now = this.ctx.currentTime;
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
@@ -637,6 +641,14 @@ class SoundEngine {
 
       this.birthdaySongTimeouts.push(tid);
     });
+
+    // Seamless loop after full verse (15 seconds) if modal remains open
+    if (loop) {
+      const loopTid = window.setTimeout(() => {
+        this.playHappyBirthdaySong(true);
+      }, 15200);
+      this.birthdaySongTimeouts.push(loopTid);
+    }
   }
 
   // 4. Confetti Celebration Pop

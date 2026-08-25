@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
@@ -11,6 +11,8 @@ import {
   PartyPopper,
   Flame,
   Timer,
+  Play,
+  Pause,
 } from 'lucide-react';
 import { BirthdayConfig } from '../types';
 import { getYouTubeEmbedUrl } from '../utils/media';
@@ -36,104 +38,13 @@ export function CelebrationVideoModal({
 
   const [secondsLeft, setSecondsLeft] = useState(totalDuration);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
   const [currentLyricIndex, setCurrentLyricIndex] = useState(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const autoCloseTimerRef = useRef<number | null>(null);
-
-  // Animated squirrel song sequence for default video mode
-  const songLyrics = [
-    { text: 'Happy birthday to you...', duration: 2400, expression: 'singing', scale: 1 },
-    { text: 'Happy birthday to youuuu! 💖', duration: 2800, expression: 'excited', scale: 1.1 },
-    {
-      text: `Happy birthday dear ${config.recipientNickname || config.recipientName || 'Love'}! ✨`,
-      duration: 3200,
-      expression: 'love',
-      scale: 1.2,
-    },
-    { text: 'Happy birthday to youuuuu! 🎉🥳', duration: 3500, expression: 'finale', scale: 0.9 },
-  ];
-
-  // Auto-close 15-second timer management
-  useEffect(() => {
-    if (!isOpen) {
-      if (autoCloseTimerRef.current) {
-        clearInterval(autoCloseTimerRef.current);
-        autoCloseTimerRef.current = null;
-      }
-      return;
-    }
-
-    setSecondsLeft(totalDuration);
-
-    const interval = window.setInterval(() => {
-      setSecondsLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          autoCloseTimerRef.current = null;
-          // Auto close after 15 seconds
-          onClose();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    autoCloseTimerRef.current = interval;
-
-    return () => {
-      if (autoCloseTimerRef.current) {
-        clearInterval(autoCloseTimerRef.current);
-        autoCloseTimerRef.current = null;
-      }
-    };
-  }, [isOpen, totalDuration, onClose]);
-
-  // Handle music and lyrics playback
-  useEffect(() => {
-    if (!isOpen) {
-      setCurrentLyricIndex(0);
-      sound.stopHappyBirthdaySong();
-      return;
-    }
-
-    setIsPlaying(true);
-    sound.playCelebrationPop();
-
-    // If default squirrel singing mode or custom video
-    if (config.celebrationVideoType === 'default' || !config.celebrationVideoUrl) {
-      sound.playHappyBirthdaySong();
-    }
-
-    let lyricTimer: number;
-    let step = 0;
-
-    const advanceLyrics = () => {
-      if (step < songLyrics.length - 1) {
-        step += 1;
-        setCurrentLyricIndex(step);
-        lyricTimer = window.setTimeout(advanceLyrics, songLyrics[step].duration);
-      }
-    };
-
-    lyricTimer = window.setTimeout(advanceLyrics, songLyrics[0].duration);
-
-    return () => {
-      window.clearTimeout(lyricTimer);
-      sound.stopHappyBirthdaySong();
-    };
-  }, [isOpen, config]);
-
-  // Video autoplay helper
-  useEffect(() => {
-    if (isOpen && videoRef.current) {
-      videoRef.current.currentTime = 0;
-      videoRef.current.play().catch((e) => {
-        console.log('Video autoplay handled:', e);
-      });
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
+  const lyricTimeoutRef = useRef<number | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   const isCustomUploadOrUrl =
     (config.celebrationVideoType === 'upload' || config.celebrationVideoType === 'url') &&
@@ -146,33 +57,173 @@ export function CelebrationVideoModal({
     ? getYouTubeEmbedUrl(config.celebrationVideoUrl || '', true, true)
     : null;
 
-  const handleReplay = () => {
-    sound.playSparkleChime();
-    setCurrentLyricIndex(0);
-    setSecondsLeft(totalDuration);
+  // Rich, cheerful lyric sequence that cycles smoothly for any duration (15s, 25s, 30s, etc.)
+  const songLyrics = [
+    { text: 'Happy birthday to you... 🎶', duration: 2500, expression: 'singing', scale: 1 },
+    { text: 'Happy birthday to youuuu! 💖', duration: 2800, expression: 'excited', scale: 1.1 },
+    {
+      text: `Happy birthday dear ${config.recipientNickname || config.recipientName || 'Love'}! ✨`,
+      duration: 3400,
+      expression: 'love',
+      scale: 1.2,
+    },
+    { text: 'Happy birthday to youuuuu! 🎉🥳', duration: 3500, expression: 'finale', scale: 1.05 },
+    { text: 'May all your wishes & dreams come true! 🌟', duration: 3200, expression: 'singing', scale: 1 },
+    { text: `Endless joy, smiles & love for ${config.recipientName || 'You'}! 💖✨`, duration: 3400, expression: 'love', scale: 1.15 },
+  ];
 
-    // Reset interval timer
+  // Auto-close countdown timer with stable interval
+  useEffect(() => {
+    if (!isOpen) {
+      if (autoCloseTimerRef.current) {
+        clearInterval(autoCloseTimerRef.current);
+        autoCloseTimerRef.current = null;
+      }
+      return;
+    }
+
+    setSecondsLeft(totalDuration);
+    setIsPlaying(true);
+
     if (autoCloseTimerRef.current) {
       clearInterval(autoCloseTimerRef.current);
     }
-    const interval = window.setInterval(() => {
+
+    autoCloseTimerRef.current = window.setInterval(() => {
       setSecondsLeft((prev) => {
         if (prev <= 1) {
-          clearInterval(interval);
-          autoCloseTimerRef.current = null;
-          onClose();
+          if (autoCloseTimerRef.current) {
+            clearInterval(autoCloseTimerRef.current);
+            autoCloseTimerRef.current = null;
+          }
+          // Trigger close callback
+          onCloseRef.current();
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
-    autoCloseTimerRef.current = interval;
+
+    return () => {
+      if (autoCloseTimerRef.current) {
+        clearInterval(autoCloseTimerRef.current);
+        autoCloseTimerRef.current = null;
+      }
+    };
+  }, [isOpen, totalDuration]);
+
+  // Handle music and continuous lyrics loop
+  useEffect(() => {
+    if (!isOpen) {
+      setCurrentLyricIndex(0);
+      if (lyricTimeoutRef.current) {
+        clearTimeout(lyricTimeoutRef.current);
+        lyricTimeoutRef.current = null;
+      }
+      sound.stopHappyBirthdaySong();
+      return;
+    }
+
+    sound.playCelebrationPop();
+
+    // If default squirrel singing mode or custom video without native sound
+    if (config.celebrationVideoType === 'default' || !config.celebrationVideoUrl) {
+      sound.playHappyBirthdaySong(true);
+    }
+
+    let currentIndex = 0;
+    const scheduleNextLyric = () => {
+      const currentItem = songLyrics[currentIndex % songLyrics.length];
+      lyricTimeoutRef.current = window.setTimeout(() => {
+        currentIndex = (currentIndex + 1) % songLyrics.length;
+        setCurrentLyricIndex(currentIndex);
+        scheduleNextLyric();
+      }, currentItem.duration);
+    };
+
+    scheduleNextLyric();
+
+    return () => {
+      if (lyricTimeoutRef.current) {
+        clearTimeout(lyricTimeoutRef.current);
+        lyricTimeoutRef.current = null;
+      }
+      sound.stopHappyBirthdaySong();
+    };
+  }, [isOpen, config.celebrationVideoType, config.celebrationVideoUrl, config.recipientNickname, config.recipientName]);
+
+  // Video autoplay & loop handler for custom uploaded/URL video
+  useEffect(() => {
+    if (isOpen && videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.muted = isMuted;
+      videoRef.current.play().catch((e) => {
+        console.log('Video autoplay handled with fallback:', e);
+      });
+    }
+  }, [isOpen, isMuted]);
+
+  const togglePlayPause = () => {
+    const next = !isPlaying;
+    setIsPlaying(next);
+
+    if (isCustomUploadOrUrl && videoRef.current) {
+      if (next) {
+        videoRef.current.play().catch(() => {});
+      } else {
+        videoRef.current.pause();
+      }
+    } else if (config.celebrationVideoType === 'default' || !config.celebrationVideoUrl) {
+      if (next) {
+        sound.playHappyBirthdaySong(true);
+      } else {
+        sound.stopHappyBirthdaySong();
+      }
+    }
+  };
+
+  const toggleMute = () => {
+    const next = !isMuted;
+    setIsMuted(next);
+    if (videoRef.current) {
+      videoRef.current.muted = next;
+    }
+    if (next) {
+      sound.stopHappyBirthdaySong();
+    } else if (config.celebrationVideoType === 'default' || !config.celebrationVideoUrl) {
+      sound.playHappyBirthdaySong(true);
+    }
+  };
+
+  const handleReplay = () => {
+    sound.playSparkleChime();
+    setCurrentLyricIndex(0);
+    setSecondsLeft(totalDuration);
+    setIsPlaying(true);
+
+    // Reset interval timer
+    if (autoCloseTimerRef.current) {
+      clearInterval(autoCloseTimerRef.current);
+    }
+    autoCloseTimerRef.current = window.setInterval(() => {
+      setSecondsLeft((prev) => {
+        if (prev <= 1) {
+          if (autoCloseTimerRef.current) {
+            clearInterval(autoCloseTimerRef.current);
+            autoCloseTimerRef.current = null;
+          }
+          onCloseRef.current();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
 
     if (isCustomUploadOrUrl && videoRef.current) {
       videoRef.current.currentTime = 0;
-      videoRef.current.play();
+      videoRef.current.play().catch(() => {});
     } else if (config.celebrationVideoType === 'default' || !config.celebrationVideoUrl) {
-      sound.playHappyBirthdaySong();
+      sound.playHappyBirthdaySong(true);
     }
   };
 
@@ -187,6 +238,8 @@ export function CelebrationVideoModal({
       onRelightCandles();
     }
   };
+
+  if (!isOpen) return null;
 
   const progressPercent = Math.max(0, Math.min(100, (secondsLeft / totalDuration) * 100));
 
@@ -225,6 +278,26 @@ export function CelebrationVideoModal({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Play/Pause Button */}
+            <button
+              type="button"
+              onClick={togglePlayPause}
+              className="p-1.5 text-white/80 hover:text-white rounded-full hover:bg-white/10 cursor-pointer transition-colors"
+              title={isPlaying ? 'Pause celebration' : 'Play celebration'}
+            >
+              {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+            </button>
+
+            {/* Mute/Unmute Button */}
+            <button
+              type="button"
+              onClick={toggleMute}
+              className="p-1.5 text-white/80 hover:text-white rounded-full hover:bg-white/10 cursor-pointer transition-colors"
+              title={isMuted ? 'Unmute' : 'Mute'}
+            >
+              {isMuted ? <VolumeX className="w-4 h-4 text-rose-200" /> : <Volume2 className="w-4 h-4" />}
+            </button>
+
             {/* Auto-closing Countdown Badge */}
             <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/25 text-amber-200 text-[11px] font-semibold tracking-wide border border-white/20">
               <Timer className="w-3 h-3 text-amber-300 animate-pulse" />
@@ -232,7 +305,11 @@ export function CelebrationVideoModal({
             </div>
 
             <button
-              onClick={onClose}
+              type="button"
+              onClick={() => {
+                sound.stopHappyBirthdaySong();
+                onClose();
+              }}
               className="p-1.5 text-white/80 hover:text-white rounded-full hover:bg-white/10 cursor-pointer transition-colors"
               title="Close video"
             >
@@ -245,15 +322,23 @@ export function CelebrationVideoModal({
         <div className="relative aspect-[9/14] sm:aspect-square w-full bg-[#fffbee] dark:bg-stone-950 flex flex-col items-center justify-center overflow-hidden border-b border-rose-100 dark:border-stone-800">
           {/* CUSTOM UPLOADED OR DIRECT URL VIDEO */}
           {isCustomUploadOrUrl ? (
-            <video
-              ref={videoRef}
-              src={config.celebrationVideoUrl}
-              autoPlay
-              controls
-              playsInline
-              loop
-              className="w-full h-full object-contain bg-black"
-            />
+            <div className="relative w-full h-full flex items-center justify-center bg-black">
+              <video
+                ref={videoRef}
+                src={config.celebrationVideoUrl}
+                autoPlay
+                controls
+                playsInline
+                loop
+                className="w-full h-full object-contain bg-black"
+                onEnded={() => {
+                  if (videoRef.current) {
+                    videoRef.current.currentTime = 0;
+                    videoRef.current.play().catch(() => {});
+                  }
+                }}
+              />
+            </div>
           ) : isYouTube && youtubeEmbedUrl ? (
             /* YOUTUBE EMBED PLAYER */
             <iframe
@@ -301,7 +386,7 @@ export function CelebrationVideoModal({
               >
                 <div className="flex items-center justify-center gap-1.5 text-rose-600 dark:text-rose-400 font-serif-romantic font-bold text-base sm:text-lg">
                   <Music className="w-4 h-4 animate-bounce text-amber-500" />
-                  <span>{songLyrics[currentLyricIndex].text}</span>
+                  <span>{songLyrics[currentLyricIndex % songLyrics.length].text}</span>
                   <Sparkles className="w-4 h-4 text-amber-400" />
                 </div>
               </motion.div>
@@ -310,9 +395,9 @@ export function CelebrationVideoModal({
               <div className="relative z-10 my-auto flex items-center justify-center">
                 <motion.div
                   animate={{
-                    y: [0, -14, 0],
-                    rotate: [-3, 3, -3],
-                    scale: [1, 1.05, 1],
+                    y: isPlaying ? [0, -14, 0] : 0,
+                    rotate: isPlaying ? [-3, 3, -3] : 0,
+                    scale: isPlaying ? [1, 1.05, 1] : 1,
                   }}
                   transition={{
                     duration: 0.7,
@@ -323,7 +408,7 @@ export function CelebrationVideoModal({
                 >
                   {/* Fluffy Tail */}
                   <motion.div
-                    animate={{ rotate: [-8, 12, -8] }}
+                    animate={{ rotate: isPlaying ? [-8, 12, -8] : 0 }}
                     transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
                     className="absolute right-0 top-6 w-24 h-32 bg-stone-100 dark:bg-stone-300 rounded-full border-4 border-stone-800 shadow-sm origin-bottom-left"
                     style={{
@@ -369,8 +454,8 @@ export function CelebrationVideoModal({
                     {/* Big Open Singing Mouth (O-shaped animated) */}
                     <motion.div
                       animate={{
-                        scaleY: [1, 1.4, 0.9, 1.3, 1],
-                        scaleX: [1, 0.9, 1.1, 0.95, 1],
+                        scaleY: isPlaying ? [1, 1.4, 0.9, 1.3, 1] : 1,
+                        scaleX: isPlaying ? [1, 0.9, 1.1, 0.95, 1] : 1,
                       }}
                       transition={{ duration: 0.6, repeat: Infinity }}
                       className="w-8 h-8 sm:w-9 sm:h-9 bg-rose-600 border-3 border-stone-900 rounded-full flex flex-col items-center justify-end overflow-hidden shadow-inner mt-0.5"
@@ -381,12 +466,12 @@ export function CelebrationVideoModal({
 
                     {/* Tiny Cute Little Paws Open Wide Singing */}
                     <motion.div
-                      animate={{ rotate: [-10, 10, -10] }}
+                      animate={{ rotate: isPlaying ? [-10, 10, -10] : 0 }}
                       transition={{ duration: 0.5, repeat: Infinity }}
                       className="absolute -left-4 top-18 w-5 h-5 bg-stone-100 border-3 border-stone-800 rounded-full"
                     />
                     <motion.div
-                      animate={{ rotate: [10, -10, 10] }}
+                      animate={{ rotate: isPlaying ? [10, -10, 10] : 0 }}
                       transition={{ duration: 0.5, repeat: Infinity }}
                       className="absolute -right-4 top-18 w-5 h-5 bg-stone-100 border-3 border-stone-800 rounded-full"
                     />
