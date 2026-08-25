@@ -15,7 +15,6 @@ import { GiftBoxReveal } from './components/GiftBoxReveal';
 import { AudioController } from './components/AudioController';
 import { CustomizerModal } from './components/CustomizerModal';
 import { RomanticSensualOverlay } from './components/RomanticSensualOverlay';
-import { MicPermissionBanner } from './components/MicPermissionBanner';
 import { Heart, Sparkles, Lock, Settings, Wand2 } from 'lucide-react';
 import { getThemeStyles } from './utils/themeStyles';
 
@@ -69,9 +68,6 @@ export default function App() {
     <div className={`min-h-screen relative font-sans-clean overflow-x-hidden transition-colors duration-700 ${themeStyles.canvasBg} ${themeStyles.isDark ? 'dark text-stone-100' : 'text-stone-850'}`}>
       {/* Ambient Floating Stardust & Hearts */}
       <FloatingParticles />
-
-      {/* Proactive Realtime Microphone Permission Banner on Site Visit */}
-      <MicPermissionBanner config={config} />
 
       {/* Romantic & Sensual Interactive Couple Overlay (Touch reactions, music beats pulse, love whispers) */}
       <RomanticSensualOverlay config={config} />
