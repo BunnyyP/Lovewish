@@ -89,6 +89,7 @@ export interface BirthdayConfig {
   celebrationVideoUrl?: string; // Base64 video data or URL
   celebrationVideoName?: string;
   celebrationVideoAutoplay?: boolean;
+  celebrationVideoDuration?: number; // Auto close play time in seconds (default: 15s)
 
   // Surprise Gift Box Media (Photo or Video on Opening Gift Box)
   surpriseBoxMediaType?: 'none' | 'image' | 'video' | 'youtube';
@@ -97,4 +98,9 @@ export interface BirthdayConfig {
   surpriseBoxMediaCaption?: string;
   surpriseBoxYoutubeUrl?: string;
   surpriseBoxAutoplayVideo?: boolean;
+
+  // User Sealed Wish & Activity Tracking
+  sealedWish?: string;
+  sealedWishDate?: string;
+  sealedWishesHistory?: Array<{ id: string; wish: string; date: string }>;
 }

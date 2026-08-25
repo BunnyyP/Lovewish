@@ -1,6 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Volume2, VolumeX, RotateCcw, Sparkles, Heart, Music, PartyPopper, Flame } from 'lucide-react';
+import {
+  X,
+  Volume2,
+  VolumeX,
+  RotateCcw,
+  Sparkles,
+  Heart,
+  Music,
+  PartyPopper,
+  Flame,
+  Timer,
+} from 'lucide-react';
 import { BirthdayConfig } from '../types';
 import { getYouTubeEmbedUrl } from '../utils/media';
 import { sound } from '../utils/audio';
@@ -18,19 +29,66 @@ export function CelebrationVideoModal({
   config,
   onRelightCandles,
 }: CelebrationVideoModalProps) {
+  const totalDuration =
+    typeof config.celebrationVideoDuration === 'number' && config.celebrationVideoDuration > 0
+      ? config.celebrationVideoDuration
+      : 15; // 15 seconds by default
+
+  const [secondsLeft, setSecondsLeft] = useState(totalDuration);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [isMuted, setIsMuted] = useState(false);
   const [currentLyricIndex, setCurrentLyricIndex] = useState(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const autoCloseTimerRef = useRef<number | null>(null);
 
   // Animated squirrel song sequence for default video mode
   const songLyrics = [
     { text: 'Happy birthday to you...', duration: 2400, expression: 'singing', scale: 1 },
     { text: 'Happy birthday to youuuu! 💖', duration: 2800, expression: 'excited', scale: 1.1 },
-    { text: `Happy birthday dear ${config.recipientNickname || config.recipientName || 'Love'}! ✨`, duration: 3200, expression: 'love', scale: 1.2 },
+    {
+      text: `Happy birthday dear ${config.recipientNickname || config.recipientName || 'Love'}! ✨`,
+      duration: 3200,
+      expression: 'love',
+      scale: 1.2,
+    },
     { text: 'Happy birthday to youuuuu! 🎉🥳', duration: 3500, expression: 'finale', scale: 0.9 },
   ];
 
+  // Auto-close 15-second timer management
+  useEffect(() => {
+    if (!isOpen) {
+      if (autoCloseTimerRef.current) {
+        clearInterval(autoCloseTimerRef.current);
+        autoCloseTimerRef.current = null;
+      }
+      return;
+    }
+
+    setSecondsLeft(totalDuration);
+
+    const interval = window.setInterval(() => {
+      setSecondsLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          autoCloseTimerRef.current = null;
+          // Auto close after 15 seconds
+          onClose();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    autoCloseTimerRef.current = interval;
+
+    return () => {
+      if (autoCloseTimerRef.current) {
+        clearInterval(autoCloseTimerRef.current);
+        autoCloseTimerRef.current = null;
+      }
+    };
+  }, [isOpen, totalDuration, onClose]);
+
+  // Handle music and lyrics playback
   useEffect(() => {
     if (!isOpen) {
       setCurrentLyricIndex(0);
@@ -84,11 +142,32 @@ export function CelebrationVideoModal({
   const isYouTube =
     config.celebrationVideoType === 'youtube' && Boolean(config.celebrationVideoUrl);
 
-  const youtubeEmbedUrl = isYouTube ? getYouTubeEmbedUrl(config.celebrationVideoUrl || '', true, true) : null;
+  const youtubeEmbedUrl = isYouTube
+    ? getYouTubeEmbedUrl(config.celebrationVideoUrl || '', true, true)
+    : null;
 
   const handleReplay = () => {
     sound.playSparkleChime();
     setCurrentLyricIndex(0);
+    setSecondsLeft(totalDuration);
+
+    // Reset interval timer
+    if (autoCloseTimerRef.current) {
+      clearInterval(autoCloseTimerRef.current);
+    }
+    const interval = window.setInterval(() => {
+      setSecondsLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          autoCloseTimerRef.current = null;
+          onClose();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    autoCloseTimerRef.current = interval;
+
     if (isCustomUploadOrUrl && videoRef.current) {
       videoRef.current.currentTime = 0;
       videoRef.current.play();
@@ -98,12 +177,18 @@ export function CelebrationVideoModal({
   };
 
   const handleMakeAnotherWish = () => {
+    if (autoCloseTimerRef.current) {
+      clearInterval(autoCloseTimerRef.current);
+      autoCloseTimerRef.current = null;
+    }
     sound.stopHappyBirthdaySong();
     onClose();
     if (onRelightCandles) {
       onRelightCandles();
     }
   };
+
+  const progressPercent = Math.max(0, Math.min(100, (secondsLeft / totalDuration) * 100));
 
   return (
     <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-hidden">
@@ -113,6 +198,15 @@ export function CelebrationVideoModal({
         exit={{ opacity: 0, scale: 0.9 }}
         className="relative max-w-lg w-full bg-[#fdfbf7] dark:bg-stone-900 rounded-3xl shadow-2xl border-2 border-rose-300 dark:border-stone-700 overflow-hidden flex flex-col max-h-[92vh]"
       >
+        {/* Top Progress Countdown Bar */}
+        <div className="w-full h-1.5 bg-rose-950/40 relative overflow-hidden">
+          <motion.div
+            className="h-full bg-gradient-to-r from-amber-300 via-rose-400 to-pink-500"
+            style={{ width: `${progressPercent}%` }}
+            transition={{ ease: 'linear', duration: 1 }}
+          />
+        </div>
+
         {/* Top Header */}
         <div className="p-3.5 sm:p-4 bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
@@ -130,12 +224,21 @@ export function CelebrationVideoModal({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-1.5 text-white/80 hover:text-white rounded-full hover:bg-white/10 cursor-pointer transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Auto-closing Countdown Badge */}
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/25 text-amber-200 text-[11px] font-semibold tracking-wide border border-white/20">
+              <Timer className="w-3 h-3 text-amber-300 animate-pulse" />
+              <span>{secondsLeft}s</span>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="p-1.5 text-white/80 hover:text-white rounded-full hover:bg-white/10 cursor-pointer transition-colors"
+              title="Close video"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Video / Animated Stage */}

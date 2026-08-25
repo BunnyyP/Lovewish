@@ -21,6 +21,7 @@ import { getThemeStyles } from '../utils/themeStyles';
 
 interface InteractiveCakeProps {
   config: BirthdayConfig;
+  onSaveWish?: (wish: string) => void;
 }
 
 // 4 Deluxe Cake Flavor Styles
@@ -119,7 +120,7 @@ const CAKE_FLAVORS: CakeFlavorConfig[] = [
   },
 ];
 
-export function InteractiveCake({ config }: InteractiveCakeProps) {
+export function InteractiveCake({ config, onSaveWish }: InteractiveCakeProps) {
   const themeStyles = getThemeStyles(config.theme);
   const [selectedFlavor, setSelectedFlavor] = useState<CakeFlavor>('strawberry');
 
@@ -131,8 +132,8 @@ export function InteractiveCake({ config }: InteractiveCakeProps) {
     { id: 5, lit: true, height: 48, emberDrift: '-5px' },
   ]);
 
-  const [wishText, setWishText] = useState('');
-  const [wishSaved, setWishSaved] = useState(false);
+  const [wishText, setWishText] = useState(config.sealedWish || '');
+  const [wishSaved, setWishSaved] = useState(Boolean(config.sealedWish));
   const [allBlownOut, setAllBlownOut] = useState(false);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [isListeningMic, setIsListeningMic] = useState(false);
@@ -144,6 +145,14 @@ export function InteractiveCake({ config }: InteractiveCakeProps) {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const animFrameRef = useRef<number | null>(null);
+
+  // Sync sealed wish from config
+  useEffect(() => {
+    if (config.sealedWish) {
+      setWishText(config.sealedWish);
+      setWishSaved(true);
+    }
+  }, [config.sealedWish]);
 
   const flavor = CAKE_FLAVORS.find((f) => f.id === selectedFlavor) || CAKE_FLAVORS[0];
 
@@ -241,6 +250,9 @@ export function InteractiveCake({ config }: InteractiveCakeProps) {
     if (!wishText.trim()) return;
     setWishSaved(true);
     sound.playSparkleChime();
+    if (onSaveWish) {
+      onSaveWish(wishText.trim());
+    }
     blowAllCandles();
   };
 
@@ -745,12 +757,21 @@ export function InteractiveCake({ config }: InteractiveCakeProps) {
             </form>
           ) : (
             <div
-              className={`p-3.5 rounded-xl ${themeStyles.cardHighlightBg} border ${themeStyles.cardBorder} flex items-center gap-2.5 text-xs sm:text-sm ${themeStyles.isDark ? 'text-emerald-300' : 'text-emerald-800'}`}
+              className={`p-3.5 rounded-xl ${themeStyles.cardHighlightBg} border ${themeStyles.cardBorder} flex items-center justify-between gap-2.5 text-xs sm:text-sm ${themeStyles.isDark ? 'text-emerald-300' : 'text-emerald-800'}`}
             >
-              <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>
-                Your secret wish: <strong className="italic">"{wishText}"</strong> has been safely stored in the universe's stars! 🌟
-              </span>
+              <div className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>
+                  Your secret wish: <strong className="italic">"{wishText}"</strong> is sealed with love! 🌟
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWishSaved(false)}
+                className="text-xs font-semibold underline text-rose-600 dark:text-rose-400 hover:text-rose-700 cursor-pointer shrink-0 ml-2"
+              >
+                Change Wish ✏️
+              </button>
             </div>
           )}
         </div>

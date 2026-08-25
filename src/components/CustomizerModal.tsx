@@ -38,6 +38,11 @@ import {
   Database,
   CheckCircle2,
   Gift,
+  Star,
+  Award,
+  History,
+  Calendar,
+  Edit3,
 } from 'lucide-react';
 import { BirthdayConfig, PolaroidPhoto, LoveReason, LoveCoupon, ThemeType } from '../types';
 import { saveConfig, generateShareUrl, DEFAULT_BIRTHDAY_CONFIG } from '../utils/storage';
@@ -59,7 +64,7 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
   const [passwordError, setPasswordError] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    'profile' | 'theme' | 'intro-music' | 'bg-music' | 'video' | 'surprise-box' | 'photos' | 'letter' | 'reasons' | 'coupons' | 'share'
+    'profile' | 'theme' | 'intro-music' | 'bg-music' | 'video' | 'surprise-box' | 'photos' | 'letter' | 'reasons' | 'coupons' | 'user-activity' | 'share'
   >('profile');
   const [copied, setCopied] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -72,11 +77,14 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
   const [videoUploadError, setVideoUploadError] = useState<string | null>(null);
   const [surprisePhotoUploadError, setSurprisePhotoUploadError] = useState<string | null>(null);
   const [surpriseVideoUploadError, setSurpriseVideoUploadError] = useState<string | null>(null);
+  const [userCouponFilter, setUserCouponFilter] = useState<'all' | 'redeemed' | 'unredeemed'>('all');
+  const [isEditingWish, setIsEditingWish] = useState(false);
+  const [tempWishText, setTempWishText] = useState(formData.sealedWish || '');
   const tabsContainerRef = useRef<HTMLDivElement | null>(null);
   const introTimerIntervalRef = useRef<number | null>(null);
 
   const TABS: Array<{
-    id: 'profile' | 'theme' | 'intro-music' | 'bg-music' | 'video' | 'surprise-box' | 'photos' | 'letter' | 'reasons' | 'coupons' | 'share';
+    id: 'profile' | 'theme' | 'intro-music' | 'bg-music' | 'video' | 'surprise-box' | 'photos' | 'letter' | 'reasons' | 'coupons' | 'user-activity' | 'share';
     label: string;
     icon: typeof Heart;
     count?: number;
@@ -90,7 +98,13 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
     { id: 'photos', label: 'Photos Clothesline', icon: Camera, count: formData.polaroids.length },
     { id: 'letter', label: 'Letter & Vows', icon: FileText },
     { id: 'reasons', label: 'Love Jar Reasons', icon: Sparkles, count: formData.reasons.length },
-    { id: 'coupons', label: 'Love Coupons', icon: Ticket, count: formData.coupons.length },
+    { id: 'coupons', label: 'Love Coupons Settings', icon: Ticket, count: formData.coupons.length },
+    {
+      id: 'user-activity',
+      label: '💌 Sealed Wish & Selected Coupons',
+      icon: CheckCircle2,
+      count: (formData.sealedWish ? 1 : 0) + formData.coupons.filter((c) => c.redeemed).length,
+    },
     { id: 'share', label: 'Share Link', icon: Share2 },
   ];
 
@@ -134,6 +148,8 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
       setAudioUploadError(null);
       setIntroAudioUploadError(null);
       setVideoUploadError(null);
+      setTempWishText(config.sealedWish || '');
+      setIsEditingWish(false);
     }
   }, [isOpen, config]);
 
@@ -2319,6 +2335,37 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
                     </div>
                   )}
 
+                  {/* Auto-close Play Duration Setting */}
+                  <div className="p-3.5 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-semibold text-stone-700 dark:text-stone-300">
+                        Video Play Time (Auto Close Duration)
+                      </label>
+                      <span className="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-stone-750 px-2 py-0.5 rounded-md border border-amber-200 dark:border-stone-600">
+                        {formData.celebrationVideoDuration ?? 15} Seconds
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min="5"
+                        max="60"
+                        step="1"
+                        value={formData.celebrationVideoDuration ?? 15}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            celebrationVideoDuration: parseInt(e.target.value, 10),
+                          })
+                        }
+                        className="flex-1 accent-amber-500 cursor-pointer"
+                      />
+                    </div>
+                    <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                      Candle blow hone ke baad video itne seconds play hoga (Default: 15s) aur phir automatically close ho jayega.
+                    </p>
+                  </div>
+
                   {/* Preview Video Button */}
                   <div className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-stone-850 border border-stone-200 dark:border-stone-700">
                     <div className="flex items-center gap-2">
@@ -3191,7 +3238,7 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
               </div>
             )}
 
-            {/* TAB 6: Love Coupons */}
+            {/* TAB: Love Coupons Settings */}
             {activeTab === 'coupons' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -3280,7 +3327,473 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
               </div>
             )}
 
-            {/* TAB 7: Share Link */}
+            {/* TAB: Recipient's Sealed Wish & Selected Coupons Activity */}
+            {activeTab === 'user-activity' && (
+              <div className="space-y-6">
+                {/* Header Banner */}
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-rose-500 via-pink-500 to-amber-500 text-white shadow-md">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-amber-200">
+                        <CheckCircle2 className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="font-serif-romantic text-lg sm:text-xl font-bold flex items-center gap-1.5">
+                          <span>User Activity & Selections Log</span>
+                          <Sparkles className="w-4 h-4 text-amber-300 animate-spin-slow" />
+                        </h3>
+                        <p className="text-xs text-rose-100 font-sans-clean">
+                          Recipient {formData.recipientName} dwara seal ki gayi Wish aur claim kiye gaye Coupons
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1 rounded-full bg-black/20 text-white text-xs font-semibold backdrop-blur-xs">
+                        Recipient: {formData.recipientNickname || formData.recipientName} 💖
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Summary Metric Counters */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mt-4 pt-3 border-t border-white/20">
+                    <div className="bg-white/15 rounded-xl p-2.5 backdrop-blur-xs">
+                      <span className="block text-[11px] text-rose-100">🎂 Birthday Wish</span>
+                      <span className="text-sm sm:text-base font-bold text-white flex items-center gap-1 mt-0.5">
+                        {formData.sealedWish ? (
+                          <>
+                            <Check className="w-4 h-4 text-emerald-300" />
+                            <span>Wish Sealed ✨</span>
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="w-4 h-4 text-amber-300" />
+                            <span>Pending / Unsealed</span>
+                          </>
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="bg-white/15 rounded-xl p-2.5 backdrop-blur-xs">
+                      <span className="block text-[11px] text-rose-100">🎟️ Claimed Coupons</span>
+                      <span className="text-sm sm:text-base font-bold text-white flex items-center gap-1 mt-0.5">
+                        <Ticket className="w-4 h-4 text-amber-300" />
+                        <span>
+                          {formData.coupons.filter((c) => c.redeemed).length} of {formData.coupons.length} Claimed
+                        </span>
+                      </span>
+                    </div>
+
+                    <div className="col-span-2 sm:col-span-1 bg-white/15 rounded-xl p-2.5 backdrop-blur-xs">
+                      <span className="block text-[11px] text-rose-100">✨ Claim Progress</span>
+                      <span className="text-sm sm:text-base font-bold text-white flex items-center gap-1 mt-0.5">
+                        <Heart className="w-4 h-4 text-pink-300 fill-pink-300" />
+                        <span>
+                          {Math.round(
+                            (formData.coupons.filter((c) => c.redeemed).length /
+                              Math.max(1, formData.coupons.length)) *
+                              100
+                          )}
+                          % Completed
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 1. SEALED BIRTHDAY WISH SECTION */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
+                      <h4 className="font-serif-romantic text-base font-bold text-stone-900 dark:text-stone-100">
+                        1. Recipient's Sealed Birthday Wish (Cake Section)
+                      </h4>
+                    </div>
+
+                    {formData.sealedWish && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
+                        <Check className="w-3 h-3" />
+                        <span>Active Secret Wish</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {formData.sealedWish ? (
+                    <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-amber-50/90 via-rose-50/70 to-pink-50/90 dark:from-stone-850 dark:via-stone-900 dark:to-stone-850 border-2 border-amber-300 dark:border-amber-700/60 shadow-md relative overflow-hidden space-y-3">
+                      {/* Top Stamp */}
+                      <div className="flex items-center justify-between text-xs text-stone-500 dark:text-stone-400 pb-2 border-b border-amber-200/80 dark:border-stone-700">
+                        <span className="flex items-center gap-1.5 font-semibold text-amber-700 dark:text-amber-300">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Secret Wish Sealed in the Stars 🌟</span>
+                        </span>
+                        {formData.sealedWishDate && (
+                          <span className="flex items-center gap-1 text-[11px]">
+                            <Calendar className="w-3 h-3" />
+                            <span>{formData.sealedWishDate}</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Wish Display or Edit Form */}
+                      {isEditingWish ? (
+                        <div className="space-y-2 pt-1">
+                          <textarea
+                            rows={3}
+                            value={tempWishText}
+                            onChange={(e) => setTempWishText(e.target.value)}
+                            placeholder="Type wish content..."
+                            className="w-full px-3.5 py-2 rounded-xl border border-amber-300 dark:border-stone-600 bg-white dark:bg-stone-800 text-sm focus:ring-2 focus:ring-amber-400 focus:outline-none font-serif-romantic text-stone-900 dark:text-stone-100"
+                          />
+                          <div className="flex items-center gap-2 justify-end">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsEditingWish(false);
+                                setTempWishText(formData.sealedWish || '');
+                              }}
+                              className="px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 text-xs font-semibold text-stone-600 dark:text-stone-300 cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFormData({
+                                  ...formData,
+                                  sealedWish: tempWishText.trim(),
+                                  sealedWishDate:
+                                    formData.sealedWishDate ||
+                                    new Date().toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                    }),
+                                });
+                                setIsEditingWish(false);
+                                sound.playSparkleChime();
+                              }}
+                              className="px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold shadow-xs cursor-pointer"
+                            >
+                              Update Wish
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="py-2">
+                          <p className="font-serif-romantic text-base sm:text-lg font-bold text-stone-900 dark:text-amber-100 italic leading-relaxed bg-white/60 dark:bg-stone-800/60 p-3.5 rounded-xl border border-amber-200 dark:border-stone-700">
+                            "{formData.sealedWish}"
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Action buttons */}
+                      {!isEditingWish && (
+                        <div className="flex items-center justify-between pt-1 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTempWishText(formData.sealedWish || '');
+                              setIsEditingWish(true);
+                            }}
+                            className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 hover:underline font-semibold cursor-pointer"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span>Edit / Modify Wish</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm('Are you sure you want to clear this sealed wish?')) {
+                                setFormData({
+                                  ...formData,
+                                  sealedWish: '',
+                                  sealedWishDate: '',
+                                });
+                                sound.playPop();
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400 hover:underline font-semibold cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Clear Sealed Wish</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Saved Wishes History (if user made multiple wishes) */}
+                      {formData.savedWishesHistory && formData.savedWishesHistory.length > 1 && (
+                        <div className="pt-3 border-t border-amber-200/80 dark:border-stone-700 space-y-2">
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-stone-600 dark:text-stone-300">
+                            <History className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Previous Sealed Wishes Log ({formData.savedWishesHistory.length}):</span>
+                          </div>
+                          <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                            {formData.savedWishesHistory.map((item, hIdx) => (
+                              <div
+                                key={item.id || `h-${hIdx}`}
+                                className="text-xs p-2 rounded-lg bg-white/70 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 flex items-start justify-between gap-2"
+                              >
+                                <span className="italic font-serif-romantic text-stone-800 dark:text-stone-200">
+                                  "{item.wish}"
+                                </span>
+                                <span className="text-[10px] text-stone-400 shrink-0">
+                                  {item.date}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* EMPTY STATE FOR SEALED WISH */
+                    <div className="p-5 rounded-2xl border-2 border-dashed border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-850 text-center space-y-3">
+                      <div className="w-10 h-10 mx-auto rounded-full bg-amber-100 dark:bg-stone-800 flex items-center justify-center text-amber-500">
+                        <Star className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h5 className="font-serif-romantic text-sm sm:text-base font-bold text-stone-800 dark:text-stone-200">
+                          Abhi tak koi Birthday Wish seal nahi hui hai
+                        </h5>
+                        <p className="text-xs text-stone-500 dark:text-stone-400 max-w-md mx-auto mt-1">
+                          Jab recipient cake blow karte waqt secret wish likhkar <strong className="text-rose-500">"Seal Wish ✨"</strong> button click karega, tab wo wish yahan real-time record ho jayegi.
+                        </p>
+                      </div>
+
+                      {/* Manual Add Wish for Testing */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const sample = prompt('Enter a secret birthday wish to save:', 'Forever happiness, peace, and endless love together!');
+                          if (sample && sample.trim()) {
+                            const nowStr = new Date().toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            });
+                            setFormData({
+                              ...formData,
+                              sealedWish: sample.trim(),
+                              sealedWishDate: nowStr,
+                              savedWishesHistory: [
+                                ...(formData.savedWishesHistory || []),
+                                { id: Date.now().toString(), wish: sample.trim(), date: nowStr },
+                              ],
+                            });
+                            sound.playSparkleChime();
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-200 text-xs font-semibold border border-amber-300 dark:border-amber-700 cursor-pointer transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Manually Set a Sealed Wish for Testing</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. SELECTED & REDEEMED LOVE COUPONS SECTION */}
+                <div className="space-y-3 pt-4 border-t border-stone-200 dark:border-stone-800">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <Ticket className="w-4 h-4 text-rose-500" />
+                      <h4 className="font-serif-romantic text-base font-bold text-stone-900 dark:text-stone-100">
+                        2. Love Coupons Claimed / Selected by Recipient
+                      </h4>
+                    </div>
+
+                    {/* Filter Buttons */}
+                    <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-800 p-1 rounded-xl border border-stone-200 dark:border-stone-700 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setUserCouponFilter('all')}
+                        className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                          userCouponFilter === 'all'
+                            ? 'bg-white dark:bg-stone-700 text-rose-600 dark:text-rose-400 shadow-xs'
+                            : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                        }`}
+                      >
+                        All ({formData.coupons.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setUserCouponFilter('redeemed')}
+                        className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                          userCouponFilter === 'redeemed'
+                            ? 'bg-rose-500 text-white shadow-xs'
+                            : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                        }`}
+                      >
+                        <Check className="w-3 h-3" />
+                        <span>Claimed ({formData.coupons.filter((c) => c.redeemed).length})</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setUserCouponFilter('unredeemed')}
+                        className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                          userCouponFilter === 'unredeemed'
+                            ? 'bg-white dark:bg-stone-700 text-amber-600 dark:text-amber-400 shadow-xs'
+                            : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                        }`}
+                      >
+                        Unclaimed ({formData.coupons.filter((c) => !c.redeemed).length})
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Bulk Actions */}
+                  <div className="flex items-center justify-between text-xs text-stone-500 dark:text-stone-400 px-1">
+                    <span>
+                      Total Claimed:{' '}
+                      <strong className="text-rose-600 dark:text-rose-400">
+                        {formData.coupons.filter((c) => c.redeemed).length}
+                      </strong>{' '}
+                      of {formData.coupons.length} Vouchers
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const todayStr = new Date().toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          });
+                          const updated = formData.coupons.map((c) => ({
+                            ...c,
+                            redeemed: true,
+                            redeemedDate: c.redeemedDate || todayStr,
+                          }));
+                          setFormData({ ...formData, coupons: updated });
+                          sound.playSparkleChime();
+                        }}
+                        className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-semibold cursor-pointer"
+                      >
+                        Mark All as Claimed
+                      </button>
+                      <span>•</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = formData.coupons.map((c) => ({
+                            ...c,
+                            redeemed: false,
+                            redeemedDate: undefined,
+                          }));
+                          setFormData({ ...formData, coupons: updated });
+                          sound.playPop();
+                        }}
+                        className="text-xs text-stone-500 hover:text-rose-600 dark:hover:text-rose-400 underline cursor-pointer"
+                      >
+                        Reset All Redemptions
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Coupons List */}
+                  <div className="space-y-2.5">
+                    {formData.coupons
+                      .filter((coupon) => {
+                        if (userCouponFilter === 'redeemed') return coupon.redeemed;
+                        if (userCouponFilter === 'unredeemed') return !coupon.redeemed;
+                        return true;
+                      })
+                      .map((coupon, idx) => (
+                        <div
+                          key={coupon.id || `act-c-${idx}`}
+                          className={`p-3.5 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                            coupon.redeemed
+                              ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800'
+                              : 'bg-stone-50 dark:bg-stone-850 border-stone-200 dark:border-stone-800'
+                          }`}
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300">
+                                {coupon.code}
+                              </span>
+                              <h5 className="font-serif-romantic text-sm sm:text-base font-bold text-stone-900 dark:text-stone-100">
+                                {coupon.title}
+                              </h5>
+                            </div>
+                            <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed">
+                              {coupon.description}
+                            </p>
+                          </div>
+
+                          {/* Status and Toggle Action */}
+                          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                            {coupon.redeemed ? (
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 text-xs font-bold border border-emerald-300 dark:border-emerald-700">
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>Claimed: {coupon.redeemedDate || 'Yes'}</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = formData.coupons.map((c) =>
+                                      c.id === coupon.id
+                                        ? { ...c, redeemed: false, redeemedDate: undefined }
+                                        : c
+                                    );
+                                    setFormData({ ...formData, coupons: updated });
+                                    sound.playPop();
+                                  }}
+                                  className="text-[11px] text-stone-500 hover:text-rose-600 dark:hover:text-rose-400 underline cursor-pointer"
+                                  title="Reset to unclaimed"
+                                >
+                                  Unclaim
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-400 text-xs font-medium">
+                                  <Clock className="w-3 h-3" />
+                                  <span>Unclaimed</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const todayStr = new Date().toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                    });
+                                    const updated = formData.coupons.map((c) =>
+                                      c.id === coupon.id
+                                        ? { ...c, redeemed: true, redeemedDate: todayStr }
+                                        : c
+                                    );
+                                    setFormData({ ...formData, coupons: updated });
+                                    sound.playSparkleChime();
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-xs cursor-pointer"
+                                >
+                                  Mark as Claimed
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+
+                    {formData.coupons.length === 0 && (
+                      <div className="p-4 text-center text-xs text-stone-500">
+                        No coupons defined yet. Add some in the Love Coupons Settings tab!
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: Share Link */}
             {activeTab === 'share' && (
               <div className="space-y-5 text-center py-4">
                 <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-rose-100 dark:bg-rose-950 flex items-center justify-center mx-auto text-rose-600">

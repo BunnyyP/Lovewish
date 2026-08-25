@@ -50,6 +50,33 @@ export default function App() {
     saveConfig(updatedConfig);
   };
 
+  const handleSaveWish = (wish: string) => {
+    const todayStr = new Date().toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const previousHistory = config.savedWishesHistory || [];
+    const newEntry = {
+      id: Date.now().toString(),
+      wish: wish,
+      date: todayStr,
+    };
+
+    const updatedConfig: BirthdayConfig = {
+      ...config,
+      sealedWish: wish,
+      sealedWishDate: todayStr,
+      savedWishesHistory: [newEntry, ...previousHistory],
+    };
+
+    setConfig(updatedConfig);
+    saveConfig(updatedConfig);
+  };
+
   const handleSaveConfig = (newConfig: BirthdayConfig) => {
     const updated = { ...newConfig };
     setConfig(updated);
@@ -111,7 +138,7 @@ export default function App() {
         />
 
         {/* Chapter 2: Virtual Birthday Cake & Blow Candles */}
-        <InteractiveCake config={config} />
+        <InteractiveCake config={config} onSaveWish={handleSaveWish} />
 
         {/* Chapter 3: Memory Clothesline & Polaroid Flip Cards */}
         <MemoryPolaroids
