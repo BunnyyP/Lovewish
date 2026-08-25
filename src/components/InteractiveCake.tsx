@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Mic, MicOff, RefreshCw, Heart, Check, Flame, Play, Film } from 'lucide-react';
+import { Sparkles, Mic, MicOff, RefreshCw, Heart, Check, Flame, Film, Wind, Sliders } from 'lucide-react';
 import { BirthdayConfig } from '../types';
 import { sound } from '../utils/audio';
 import { fireHeartConfetti, fireFireworks } from '../utils/confetti';
 import { CelebrationVideoModal } from './CelebrationVideoModal';
 import { getThemeStyles } from '../utils/themeStyles';
+import { micBlowManager, MicPermissionStatus } from '../utils/micManager';
 
 interface InteractiveCakeProps {
   config: BirthdayConfig;
@@ -24,11 +25,56 @@ export function InteractiveCake({ config }: InteractiveCakeProps) {
   const [wishText, setWishText] = useState('');
   const [wishSaved, setWishSaved] = useState(false);
   const [allBlownOut, setAllBlownOut] = useState(false);
-  const [isListeningMic, setIsListeningMic] = useState(false);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
 
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  // Real-time Mic Blow States
+  const [micStatus, setMicStatus] = useState<MicPermissionStatus>(() => micBlowManager.getStatus());
+  const [liveBlowLevel, setLiveBlowLevel] = useState(0);
+  const [sensitivityPreset, setSensitivityPreset] = useState<'high' | 'normal' | 'low'>('high');
+
+  // Sync mic permission and status
+  useEffect(() => {
+    const unsubStatus = micBlowManager.onStatusChange((status) => {
+      setMicStatus(status);
+    });
+    return unsubStatus;
+  }, []);
+
+  // Update sensitivity threshold
+  useEffect(() => {
+    if (sensitivityPreset === 'high') {
+      micBlowManager.setSensitivity(35); // Very responsive to gentle air puff
+    } else if (sensitivityPreset === 'normal') {
+      micBlowManager.setSensitivity(48);
+    } else {
+      micBlowManager.setSensitivity(65);
+    }
+  }, [sensitivityPreset]);
+
+  // Hook real-time blow events to extinguish candles
+  useEffect(() => {
+    const unsubBlow = micBlowManager.onBlow((level, isStrongBlow) => {
+      setLiveBlowLevel(level);
+
+      // Only extinguish if candles are currently lit
+      if (!allBlownOut && (isStrongBlow || level >= micBlowManager.getSensitivity())) {
+        // Sequentially extinguish candles with realistic stagger
+        extinguishCandlesSequentially();
+      }
+    });
+
+    return unsubBlow;
+  }, [allBlownOut]);
+
+  // Sequentially extinguish candles for realism
+  const extinguishCandlesSequentially = () => {
+    sound.playBlowCandle();
+    setCandles((prev) => {
+      const anyLit = prev.some((c) => c.lit);
+      if (!anyLit) return prev;
+      return prev.map((c) => ({ ...c, lit: false }));
+    });
+  };
 
   // Check if all candles are blown out
   useEffect(() => {
@@ -88,75 +134,19 @@ export function InteractiveCake({ config }: InteractiveCakeProps) {
     blowAllCandles();
   };
 
-  // Microphone Blow Detection
-  const toggleMicBlowDetection = async () => {
-    if (isListeningMic) {
-      stopMic();
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const audioCtx = new AudioCtx();
-      audioContextRef.current = audioCtx;
-
-      const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 256;
-      const source = audioCtx.createMediaStreamSource(stream);
-      source.connect(analyser);
-
-      setIsListeningMic(true);
-
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-
-      let blowDetectionTimer: number;
-
-      const checkAudioLevel = () => {
-        analyser.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < bufferLength; i++) {
-          sum += dataArray[i];
-        }
-        const average = sum / bufferLength;
-
-        // Blow detection: microphone volume spike (puff of air)
-        if (average > 55) {
-          blowAllCandles();
-          stopMic();
-          return;
-        }
-
-        blowDetectionTimer = requestAnimationFrame(checkAudioLevel);
-      };
-
-      checkAudioLevel();
-    } catch (err) {
-      console.warn('Mic permission not granted or unavailable', err);
-      setIsListeningMic(false);
+  const handleToggleMic = async () => {
+    sound.primeAudio();
+    if (micStatus === 'listening') {
+      micBlowManager.stopListening();
+    } else {
+      const granted = await micBlowManager.requestMicPermission();
+      if (granted) {
+        sound.playSparkleChime();
+      }
     }
   };
 
-  const stopMic = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-    setIsListeningMic(false);
-  };
-
-  // Clean up mic on unmount
-  useEffect(() => {
-    return () => {
-      stopMic();
-    };
-  }, []);
+  const isMicActive = micStatus === 'listening';
 
   return (
     <section id="birthday-cake" className="py-16 px-4 max-w-4xl mx-auto text-center relative">
@@ -185,54 +175,68 @@ export function InteractiveCake({ config }: InteractiveCakeProps) {
 
         {/* The Candle Row */}
         <div className="flex items-end justify-center gap-4 sm:gap-6 h-28 mb-[-8px] relative z-20">
-          {candles.map((candle) => (
-            <div
-              key={candle.id}
-              onClick={() => toggleCandle(candle.id)}
-              className="group flex flex-col items-center cursor-pointer transition-transform hover:scale-110 active:scale-95 select-none"
-              title={candle.lit ? 'Click to blow out candle' : 'Click to relight'}
-            >
-              {/* Flame / Smoke */}
-              <div className="h-10 flex items-center justify-center relative">
-                {candle.lit ? (
-                  <div className="relative">
-                    {/* Outer Glow */}
-                    <div className="absolute -inset-2 bg-amber-400/50 rounded-full blur-md animate-pulse" />
-                    {/* Flame shape */}
-                    <div className="w-4 h-7 rounded-full bg-gradient-to-t from-orange-500 via-amber-400 to-yellow-100 animate-flame shadow-[0_0_12px_#f59e0b]" />
-                  </div>
-                ) : (
-                  /* Smoke puff animation */
-                  <motion.div
-                    initial={{ y: 0, opacity: 0.8, scale: 0.5 }}
-                    animate={{ y: -25, opacity: 0, scale: 1.5 }}
-                    transition={{ duration: 1.2, ease: 'easeOut' }}
-                    className="text-stone-400 text-xs font-mono select-none"
-                  >
-                    💨
-                  </motion.div>
-                )}
-              </div>
+          {candles.map((candle) => {
+            // Dynamic flame tilt and scale based on live air puff / blow level
+            const flameTilt = liveBlowLevel > 10 ? (candle.id % 2 === 0 ? 15 : -15) * (liveBlowLevel / 50) : 0;
+            const flameScale = liveBlowLevel > 10 ? Math.max(0.3, 1 - (liveBlowLevel / 80)) : 1;
 
-              {/* Candle Wick */}
-              <div className="w-0.5 h-2 bg-stone-700" />
-
-              {/* Candle Stick */}
+            return (
               <div
-                style={{ height: `${candle.height}px` }}
-                className={`w-4 sm:w-5 rounded-t-sm rounded-b-xs shadow-md border-x border-t border-white/40 ${candle.color} relative overflow-hidden`}
+                key={candle.id}
+                onClick={() => toggleCandle(candle.id)}
+                className="group flex flex-col items-center cursor-pointer transition-transform hover:scale-110 active:scale-95 select-none"
+                title={candle.lit ? 'Click or blow into mic to extinguish' : 'Click to relight'}
               >
-                {/* Spiral stripes */}
+                {/* Flame / Smoke */}
+                <div className="h-10 flex items-center justify-center relative">
+                  {candle.lit ? (
+                    <motion.div
+                      animate={{
+                        rotate: flameTilt,
+                        scaleY: flameScale,
+                        scaleX: liveBlowLevel > 20 ? 0.8 : 1,
+                      }}
+                      transition={{ duration: 0.08 }}
+                      className="relative"
+                    >
+                      {/* Outer Glow */}
+                      <div className="absolute -inset-2 bg-amber-400/50 rounded-full blur-md animate-pulse" />
+                      {/* Flame shape with wind flicker */}
+                      <div className="w-4 h-7 rounded-full bg-gradient-to-t from-orange-500 via-amber-400 to-yellow-100 animate-flame shadow-[0_0_12px_#f59e0b]" />
+                    </motion.div>
+                  ) : (
+                    /* Smoke puff animation */
+                    <motion.div
+                      initial={{ y: 0, opacity: 0.8, scale: 0.5 }}
+                      animate={{ y: -25, opacity: 0, scale: 1.5 }}
+                      transition={{ duration: 1.2, ease: 'easeOut' }}
+                      className="text-stone-400 text-xs font-mono select-none"
+                    >
+                      💨
+                    </motion.div>
+                  )}
+                </div>
+
+                {/* Candle Wick */}
+                <div className="w-0.5 h-2 bg-stone-700" />
+
+                {/* Candle Stick */}
                 <div
-                  className="absolute inset-0 opacity-40"
-                  style={{
-                    backgroundImage:
-                      'repeating-linear-gradient(45deg, rgba(255,255,255,0.7), rgba(255,255,255,0.7) 3px, transparent 3px, transparent 8px)',
-                  }}
-                />
+                  style={{ height: `${candle.height}px` }}
+                  className={`w-4 sm:w-5 rounded-t-sm rounded-b-xs shadow-md border-x border-t border-white/40 ${candle.color} relative overflow-hidden`}
+                >
+                  {/* Spiral stripes */}
+                  <div
+                    className="absolute inset-0 opacity-40"
+                    style={{
+                      backgroundImage:
+                        'repeating-linear-gradient(45deg, rgba(255,255,255,0.7), rgba(255,255,255,0.7) 3px, transparent 3px, transparent 8px)',
+                    }}
+                  />
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* 3D Tiered Cake Illustration */}
@@ -273,6 +277,45 @@ export function InteractiveCake({ config }: InteractiveCakeProps) {
           </div>
         </div>
 
+        {/* Real-time Breath / Blow Intensity Gauge (HUD) */}
+        {!allBlownOut && isMicActive && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-6 p-3 rounded-2xl bg-stone-900/80 border border-rose-500/30 backdrop-blur-md shadow-lg"
+          >
+            <div className="flex items-center justify-between text-xs font-semibold mb-1.5 px-1">
+              <span className="flex items-center gap-1.5 text-rose-300">
+                <Wind className="w-4 h-4 text-rose-400 animate-pulse" />
+                <span>Realtime Breath Gauge (Phoonk Meter)</span>
+              </span>
+              <span className={`font-mono text-[11px] px-2 py-0.5 rounded-full ${
+                liveBlowLevel >= 35 ? 'bg-rose-500 text-white animate-pulse' : 'bg-stone-800 text-stone-300'
+              }`}>
+                {liveBlowLevel > 0 ? `${liveBlowLevel}%` : 'Waiting for breath...'}
+              </span>
+            </div>
+
+            {/* Live Breath Meter Bar */}
+            <div className="w-full h-2.5 bg-stone-800 rounded-full overflow-hidden relative shadow-inner">
+              <motion.div
+                className="h-full bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-500 rounded-full transition-all duration-75"
+                style={{ width: `${Math.min(100, liveBlowLevel)}%` }}
+              />
+              {/* Trigger Threshold Marker */}
+              <div
+                className="absolute top-0 bottom-0 w-0.5 bg-white/70 shadow-glow"
+                style={{ left: `${sensitivityPreset === 'high' ? 35 : sensitivityPreset === 'normal' ? 48 : 65}%` }}
+                title="Blow Threshold to Extinguish"
+              />
+            </div>
+
+            <p className="text-[11px] text-stone-400 mt-2 font-sans-clean flex items-center justify-center gap-1">
+              <span>💨 Phone / Laptop ke mic par jor se phoonk mariye!</span>
+            </p>
+          </motion.div>
+        )}
+
         {/* Celebration Announcement Banner */}
         <AnimatePresence>
           {allBlownOut && (
@@ -297,7 +340,7 @@ export function InteractiveCake({ config }: InteractiveCakeProps) {
           )}
         </AnimatePresence>
 
-        {/* Controls (Blow All, Relight, Mic Blow, Watch Video) */}
+        {/* Controls (Blow All, Relight, Mic Blow, Watch Video, Sensitivity) */}
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           {!allBlownOut ? (
             <button
@@ -306,7 +349,7 @@ export function InteractiveCake({ config }: InteractiveCakeProps) {
               className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r ${themeStyles.accentBtnGradient} text-white text-xs sm:text-sm font-semibold shadow-md transition-all hover:scale-105 active:scale-95 cursor-pointer`}
             >
               <Flame className="w-4 h-4" />
-              <span>Blow All Candles</span>
+              <span>Blow All (Manual)</span>
             </button>
           ) : (
             <>
@@ -330,19 +373,45 @@ export function InteractiveCake({ config }: InteractiveCakeProps) {
             </>
           )}
 
+          {/* Real-time Mic Blow Button */}
           <button
             id="mic-blow-detect-button"
-            onClick={toggleMicBlowDetection}
-            title="Blow into your microphone to extinguish candles!"
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-xs sm:text-sm font-semibold border transition-all cursor-pointer ${
-              isListeningMic
-                ? 'bg-rose-500 text-white border-rose-400 animate-pulse'
+            onClick={handleToggleMic}
+            title={isMicActive ? 'Microphone is active! Blow onto your mic to extinguish candles.' : 'Click to enable real-time mic blow'}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-xs sm:text-sm font-semibold border transition-all cursor-pointer shadow-md ${
+              isMicActive
+                ? 'bg-rose-600 text-white border-rose-400 ring-2 ring-rose-400/50 animate-pulse'
                 : `${themeStyles.cardHighlightBg} ${themeStyles.isDark ? 'text-stone-100' : 'text-stone-800'} ${themeStyles.cardBorder} hover:scale-105`
             }`}
           >
-            {isListeningMic ? <Mic className="w-4 h-4 animate-bounce" /> : <MicOff className="w-4 h-4" />}
-            <span>{isListeningMic ? 'Listening... (Blow into mic!)' : 'Use Mic to Blow'}</span>
+            {isMicActive ? <Mic className="w-4 h-4 animate-bounce text-amber-200" /> : <MicOff className="w-4 h-4" />}
+            <span>{isMicActive ? 'Mic Active • Blow Now! 💨' : 'Enable Mic Blow 🎙️'}</span>
           </button>
+
+          {/* Sensitivity Preset Switcher */}
+          {isMicActive && (
+            <div className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-stone-800/80 border border-stone-700 text-[11px] text-stone-300">
+              <Sliders className="w-3 h-3 text-amber-400" />
+              <button
+                onClick={() => setSensitivityPreset('high')}
+                className={`px-2 py-0.5 rounded-full transition-colors cursor-pointer ${
+                  sensitivityPreset === 'high' ? 'bg-rose-500 text-white font-bold' : 'hover:text-white'
+                }`}
+                title="Halka Phoonk (Very sensitive)"
+              >
+                Sensitive
+              </button>
+              <button
+                onClick={() => setSensitivityPreset('normal')}
+                className={`px-2 py-0.5 rounded-full transition-colors cursor-pointer ${
+                  sensitivityPreset === 'normal' ? 'bg-rose-500 text-white font-bold' : 'hover:text-white'
+                }`}
+                title="Normal Phoonk"
+              >
+                Normal
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Secret Birthday Wish Input Form */}

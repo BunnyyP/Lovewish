@@ -4,6 +4,7 @@ import { Lock, KeyRound, Sparkles, Heart, Eye, EyeOff, ShieldAlert, ArrowRight }
 import { sound } from '../utils/audio';
 import { fireHeartConfetti } from '../utils/confetti';
 import { BirthdayConfig } from '../types';
+import { micBlowManager } from '../utils/micManager';
 
 interface SiteLockScreenProps {
   config: BirthdayConfig;
@@ -24,6 +25,8 @@ export function SiteLockScreen({ config, onUnlock }: SiteLockScreenProps) {
     if (!password.trim()) return;
 
     sound.primeAudio();
+    // Proactively request microphone permission for candle blowing
+    micBlowManager.requestMicPermission().catch(() => {});
     setIsSubmitting(true);
 
     const entered = password.trim();

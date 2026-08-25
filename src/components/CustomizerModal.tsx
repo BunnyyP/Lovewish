@@ -37,6 +37,7 @@ import {
   Sliders,
   Database,
   CheckCircle2,
+  Gift,
 } from 'lucide-react';
 import { BirthdayConfig, PolaroidPhoto, LoveReason, LoveCoupon, ThemeType } from '../types';
 import { saveConfig, generateShareUrl, DEFAULT_BIRTHDAY_CONFIG } from '../utils/storage';
@@ -58,7 +59,7 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
   const [passwordError, setPasswordError] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    'profile' | 'theme' | 'intro-music' | 'bg-music' | 'video' | 'photos' | 'letter' | 'reasons' | 'coupons' | 'share'
+    'profile' | 'theme' | 'intro-music' | 'bg-music' | 'video' | 'surprise-box' | 'photos' | 'letter' | 'reasons' | 'coupons' | 'share'
   >('profile');
   const [copied, setCopied] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -69,11 +70,13 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
   const [audioUploadError, setAudioUploadError] = useState<string | null>(null);
   const [introAudioUploadError, setIntroAudioUploadError] = useState<string | null>(null);
   const [videoUploadError, setVideoUploadError] = useState<string | null>(null);
+  const [surprisePhotoUploadError, setSurprisePhotoUploadError] = useState<string | null>(null);
+  const [surpriseVideoUploadError, setSurpriseVideoUploadError] = useState<string | null>(null);
   const tabsContainerRef = useRef<HTMLDivElement | null>(null);
   const introTimerIntervalRef = useRef<number | null>(null);
 
   const TABS: Array<{
-    id: 'profile' | 'theme' | 'intro-music' | 'bg-music' | 'video' | 'photos' | 'letter' | 'reasons' | 'coupons' | 'share';
+    id: 'profile' | 'theme' | 'intro-music' | 'bg-music' | 'video' | 'surprise-box' | 'photos' | 'letter' | 'reasons' | 'coupons' | 'share';
     label: string;
     icon: typeof Heart;
     count?: number;
@@ -83,6 +86,7 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
     { id: 'intro-music', label: '💌 1. Intro Music & Timings', icon: Volume2 },
     { id: 'bg-music', label: '🎶 2. Background Music', icon: Music },
     { id: 'video', label: '🎂 3. Celebration Video', icon: Film },
+    { id: 'surprise-box', label: '🎁 4. Surprise Box (Pic/Video)', icon: Gift },
     { id: 'photos', label: 'Photos Clothesline', icon: Camera, count: formData.polaroids.length },
     { id: 'letter', label: 'Letter & Vows', icon: FileText },
     { id: 'reasons', label: 'Love Jar Reasons', icon: Sparkles, count: formData.reasons.length },
@@ -336,6 +340,58 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
     };
     reader.onerror = () => {
       setVideoUploadError('Failed to read video file. Please try another file.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Surprise Box Photo Upload Handler
+  const handleSurprisePhotoUpload = (file: File) => {
+    setSurprisePhotoUploadError(null);
+    if (!file.type.startsWith('image/') && !file.name.match(/\.(jpg|jpeg|png|webp|gif)$/i)) {
+      setSurprisePhotoUploadError('Please select a valid image file (JPG, PNG, WebP).');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        const base64 = e.target.result as string;
+        setFormData((prev) => ({
+          ...prev,
+          surpriseBoxMediaType: 'image',
+          surpriseBoxMediaUrl: base64,
+          surpriseBoxMediaName: file.name,
+        }));
+        sound.playSparkleChime();
+      }
+    };
+    reader.onerror = () => {
+      setSurprisePhotoUploadError('Failed to read photo file. Please try another image.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Surprise Box Video Upload Handler
+  const handleSurpriseVideoUpload = (file: File) => {
+    setSurpriseVideoUploadError(null);
+    if (!file.type.startsWith('video/') && !file.name.match(/\.(mp4|webm|mov|m4v)$/i)) {
+      setSurpriseVideoUploadError('Please select a valid video file (MP4, WebM, MOV).');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        const base64 = e.target.result as string;
+        setFormData((prev) => ({
+          ...prev,
+          surpriseBoxMediaType: 'video',
+          surpriseBoxMediaUrl: base64,
+          surpriseBoxMediaName: file.name,
+        }));
+        sound.playSparkleChime();
+      }
+    };
+    reader.onerror = () => {
+      setSurpriseVideoUploadError('Failed to read video file. Please try another file.');
     };
     reader.readAsDataURL(file);
   };
@@ -2282,6 +2338,525 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
                     >
                       <Film className="w-3.5 h-3.5" />
                       <span>Preview Candle Blow Video 🐿️🎬</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: 4. SURPRISE GIFT BOX MEDIA (PHOTO / VIDEO / YOUTUBE) */}
+            {activeTab === 'surprise-box' && (
+              <div className="space-y-5">
+                {/* PERMANENT PERSISTENCE ASSURANCE BANNER */}
+                <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-gradient-to-r from-rose-500/10 via-pink-500/10 to-amber-500/10 border border-rose-500/30 text-rose-950 dark:text-rose-200 shadow-xs">
+                  <div className="w-8 h-8 rounded-xl bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300 flex items-center justify-center shrink-0">
+                    <Gift className="w-4 h-4" />
+                  </div>
+                  <div className="text-xs min-w-0">
+                    <p className="font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
+                      <span>Surprise Box Media Configured & Auto-Saved</span>
+                      <span className="text-[10px] px-2 py-0.2 rounded-full bg-rose-100 dark:bg-rose-900/70 text-rose-700 dark:text-rose-300 font-semibold">
+                        Auto-Saved
+                      </span>
+                    </p>
+                    <p className="text-[11px] text-stone-600 dark:text-stone-300">
+                      Jab user "Unwrap Birthday Gift Box" par tap karega, toh yahan set kiya gaya Photo ya Video unwrap hokar screen par reveal hoga!
+                    </p>
+                  </div>
+                </div>
+
+                {/* MAIN SURPRISE BOX CARD */}
+                <div className="space-y-4 p-4 sm:p-5 rounded-2xl border-2 border-rose-200/80 dark:border-rose-900/40 bg-white dark:bg-stone-850 shadow-xs">
+                  <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-stone-100 dark:border-stone-800">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-950 text-rose-600 flex items-center justify-center shrink-0">
+                        <Gift className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100">
+                            Surprise Box Reveal Media (Photo ya Video)
+                          </h4>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 font-semibold">
+                            Gift Unbox
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                          Choose whether a romantic photo, custom uploaded video clip, or YouTube song plays inside the gift box.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Autoplay toggle for video */}
+                    {(formData.surpriseBoxMediaType === 'video' || formData.surpriseBoxMediaType === 'youtube') && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-medium text-stone-600 dark:text-stone-300">
+                          Auto-Play on Unbox:
+                        </span>
+                        <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={formData.surpriseBoxAutoplayVideo !== false}
+                            onChange={(e) =>
+                              setFormData({ ...formData, surpriseBoxAutoplayVideo: e.target.checked })
+                            }
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-stone-300 peer-focus:outline-none rounded-full peer dark:bg-stone-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-600"></div>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Media Type Options */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
+                    {[
+                      {
+                        type: 'image',
+                        label: 'Romantic Photo / Pic 🖼️',
+                        desc: 'Upload photo from phone or pick preset',
+                        badge: 'Photo / Pic',
+                        icon: ImageIcon,
+                      },
+                      {
+                        type: 'video',
+                        label: 'Custom Video Clip 🎬',
+                        desc: 'Upload MP4/WebM video from phone/PC',
+                        badge: 'Custom Video',
+                        icon: Film,
+                      },
+                      {
+                        type: 'youtube',
+                        label: 'YouTube Video / Song ▶️',
+                        desc: 'Play specific YouTube song or clip',
+                        badge: 'YouTube',
+                        icon: Youtube,
+                      },
+                      {
+                        type: 'none',
+                        label: 'Certificate & Vows Only 📜',
+                        desc: 'Show lifetime certificate & love vows only',
+                        badge: 'Text Only',
+                        icon: FileText,
+                      },
+                    ].map((item) => {
+                      const isSelected = (formData.surpriseBoxMediaType || 'image') === item.type;
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.type}
+                          type="button"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              surpriseBoxMediaType: item.type as BirthdayConfig['surpriseBoxMediaType'],
+                            });
+                            sound.playSparkleChime();
+                          }}
+                          className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                            isSelected
+                              ? 'border-rose-500 bg-rose-50/80 dark:bg-stone-800 ring-2 ring-rose-400 shadow-xs'
+                              : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 hover:border-stone-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-1.5">
+                              <Icon className={`w-4 h-4 ${isSelected ? 'text-rose-600 dark:text-rose-400' : 'text-stone-500'}`} />
+                              <span className="text-xs font-bold text-stone-900 dark:text-stone-100">
+                                {item.label}
+                              </span>
+                            </div>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 font-semibold">
+                              {item.badge}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-stone-500 dark:text-stone-400">
+                            {item.desc}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* 1. PHOTO / PIC CONFIGURATION */}
+                  {formData.surpriseBoxMediaType === 'image' && (
+                    <div className="p-3.5 rounded-xl bg-rose-50/50 dark:bg-stone-800/80 border border-rose-200 dark:border-stone-700 space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-stone-800 dark:text-stone-200 mb-1">
+                          Upload Surprise Photo (Phone Gallery ya Computer se Photo Chuniye):
+                        </label>
+                        <p className="text-[11px] text-stone-500 mb-2">
+                          Yeh photo gift box unwrap hote hi romantic frame me glow ke sath dikhegi.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
+                        <label className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-rose-300 dark:border-stone-600 hover:border-rose-500 bg-white dark:bg-stone-850 hover:bg-rose-50/40 cursor-pointer transition-colors text-xs font-semibold text-rose-700 dark:text-rose-300 shadow-xs">
+                          <Upload className="w-4 h-4 text-rose-500" />
+                          <span>
+                            {formData.surpriseBoxMediaName
+                              ? 'Change Uploaded Photo'
+                              : 'Click to Upload Photo (.jpg, .png, .webp)'}
+                          </span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleSurprisePhotoUpload(file);
+                            }}
+                          />
+                        </label>
+
+                        {formData.surpriseBoxMediaUrl && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData({
+                                ...formData,
+                                surpriseBoxMediaUrl: '',
+                                surpriseBoxMediaName: '',
+                              });
+                              sound.playPop();
+                            }}
+                            className="px-3.5 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-500 hover:text-rose-600 text-xs font-medium cursor-pointer"
+                          >
+                            Clear Photo
+                          </button>
+                        )}
+                      </div>
+
+                      {surprisePhotoUploadError && (
+                        <p className="text-xs text-rose-600 font-medium">{surprisePhotoUploadError}</p>
+                      )}
+
+                      {/* Direct Photo URL fallback */}
+                      <div className="space-y-1">
+                        <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300">
+                          Or Enter Direct Image URL:
+                        </label>
+                        <input
+                          type="url"
+                          value={formData.surpriseBoxMediaUrl || ''}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              surpriseBoxMediaUrl: e.target.value,
+                              surpriseBoxMediaName: 'Direct URL Photo',
+                            })
+                          }
+                          placeholder="https://images.unsplash.com/photo-..."
+                          className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-850 text-xs text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-rose-400 focus:outline-none"
+                        />
+                      </div>
+
+                      {/* Curated Romantic Photo Presets */}
+                      <div className="space-y-1.5 pt-1">
+                        <span className="text-[11px] font-semibold text-stone-600 dark:text-stone-300">
+                          Or Choose from High-Quality Romantic Presets:
+                        </span>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {[
+                            {
+                              name: 'Red Roses & Hearts',
+                              url: 'https://images.unsplash.com/photo-1518895949257-7621c3c786d7?auto=format&fit=crop&w=800&q=80',
+                            },
+                            {
+                              name: 'Couple Romantic Hug',
+                              url: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&w=800&q=80',
+                            },
+                            {
+                              name: 'Stargazing Under Sky',
+                              url: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=800&q=80',
+                            },
+                            {
+                              name: 'Spontaneous Roadtrip',
+                              url: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&w=800&q=80',
+                            },
+                          ].map((preset) => {
+                            const isMatch = formData.surpriseBoxMediaUrl === preset.url;
+                            return (
+                              <button
+                                key={preset.name}
+                                type="button"
+                                onClick={() => {
+                                  setFormData({
+                                    ...formData,
+                                    surpriseBoxMediaUrl: preset.url,
+                                    surpriseBoxMediaName: preset.name,
+                                  });
+                                  sound.playSparkleChime();
+                                }}
+                                className={`p-1.5 rounded-xl border text-left cursor-pointer transition-all flex flex-col gap-1 ${
+                                  isMatch
+                                    ? 'bg-rose-100 dark:bg-rose-950/80 border-rose-500 ring-2 ring-rose-400'
+                                    : 'bg-white dark:bg-stone-850 border-stone-200 dark:border-stone-700 hover:border-rose-300'
+                                }`}
+                              >
+                                <img
+                                  src={preset.url}
+                                  alt={preset.name}
+                                  className="w-full h-16 object-cover rounded-lg"
+                                />
+                                <span className="text-[10px] font-semibold text-stone-800 dark:text-stone-200 truncate">
+                                  {preset.name}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Photo Caption Input */}
+                      <div className="space-y-1 pt-1">
+                        <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300">
+                          Photo Caption (Photo ke niche likha jane wala pyara sandesh):
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.surpriseBoxMediaCaption || ''}
+                          onChange={(e) =>
+                            setFormData({ ...formData, surpriseBoxMediaCaption: e.target.value })
+                          }
+                          placeholder="You are the greatest gift I could ever ask for in this lifetime. Happy Birthday! ❤️"
+                          className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-850 text-xs text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-rose-400 focus:outline-none"
+                        />
+                      </div>
+
+                      {/* Live Image Preview */}
+                      {formData.surpriseBoxMediaUrl && (
+                        <div className="p-3 rounded-xl bg-white dark:bg-stone-850 border border-stone-200 dark:border-stone-700 space-y-2">
+                          <span className="text-[11px] font-bold text-stone-700 dark:text-stone-300 flex items-center gap-1">
+                            <Eye className="w-3.5 h-3.5 text-rose-500" />
+                            <span>Live Picture Preview in Gift Box:</span>
+                          </span>
+                          <div className="max-h-48 overflow-hidden rounded-xl bg-stone-950 flex items-center justify-center">
+                            <img
+                              src={formData.surpriseBoxMediaUrl}
+                              alt="Preview"
+                              className="max-h-48 w-auto object-contain rounded-lg"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 2. CUSTOM VIDEO CONFIGURATION */}
+                  {formData.surpriseBoxMediaType === 'video' && (
+                    <div className="p-3.5 rounded-xl bg-rose-50/50 dark:bg-stone-800/80 border border-rose-200 dark:border-stone-700 space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-stone-800 dark:text-stone-200 mb-1">
+                          Upload Surprise Birthday Video Clip (.mp4, .webm, .mov):
+                        </label>
+                        <p className="text-[11px] text-stone-500 mb-2">
+                          Jab recipient gift box unwrap karega, toh yeh custom birthday video screen par play hogi.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
+                        <label className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-rose-300 dark:border-stone-600 hover:border-rose-500 bg-white dark:bg-stone-850 hover:bg-rose-50/40 cursor-pointer transition-colors text-xs font-semibold text-rose-700 dark:text-rose-300 shadow-xs">
+                          <Upload className="w-4 h-4 text-rose-500" />
+                          <span>
+                            {formData.surpriseBoxMediaName
+                              ? 'Change Uploaded Video'
+                              : 'Click to Upload Video File (.mp4, .webm, .mov)'}
+                          </span>
+                          <input
+                            type="file"
+                            accept="video/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleSurpriseVideoUpload(file);
+                            }}
+                          />
+                        </label>
+
+                        {formData.surpriseBoxMediaUrl && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData({
+                                ...formData,
+                                surpriseBoxMediaUrl: '',
+                                surpriseBoxMediaName: '',
+                              });
+                              sound.playPop();
+                            }}
+                            className="px-3.5 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-500 hover:text-rose-600 text-xs font-medium cursor-pointer"
+                          >
+                            Clear Video
+                          </button>
+                        )}
+                      </div>
+
+                      {surpriseVideoUploadError && (
+                        <p className="text-xs text-rose-600 font-medium">{surpriseVideoUploadError}</p>
+                      )}
+
+                      {/* Direct Video URL input */}
+                      <div className="space-y-1">
+                        <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300">
+                          Or Enter Direct MP4 Video URL:
+                        </label>
+                        <input
+                          type="url"
+                          value={formData.surpriseBoxMediaUrl || ''}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              surpriseBoxMediaUrl: e.target.value,
+                              surpriseBoxMediaName: 'Direct Video URL',
+                            })
+                          }
+                          placeholder="https://example.com/birthday-video.mp4"
+                          className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-850 text-xs text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-rose-400 focus:outline-none"
+                        />
+                      </div>
+
+                      {/* Video Caption Input */}
+                      <div className="space-y-1">
+                        <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300">
+                          Video Caption (Video ke niche sandesh):
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.surpriseBoxMediaCaption || ''}
+                          onChange={(e) =>
+                            setFormData({ ...formData, surpriseBoxMediaCaption: e.target.value })
+                          }
+                          placeholder="A special video message made just for you! ❤️"
+                          className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-850 text-xs text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-rose-400 focus:outline-none"
+                        />
+                      </div>
+
+                      {/* Live Video Preview */}
+                      {formData.surpriseBoxMediaUrl && (
+                        <div className="p-3 rounded-xl bg-white dark:bg-stone-850 border border-stone-200 dark:border-stone-700 space-y-2">
+                          <span className="text-[11px] font-bold text-stone-700 dark:text-stone-300 flex items-center gap-1">
+                            <Play className="w-3.5 h-3.5 text-rose-500 fill-current" />
+                            <span>Live Video Player Preview:</span>
+                          </span>
+                          <div className="max-h-56 overflow-hidden rounded-xl bg-black flex items-center justify-center">
+                            <video
+                              src={formData.surpriseBoxMediaUrl}
+                              controls
+                              playsInline
+                              className="max-h-56 w-full object-contain rounded-lg"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 3. YOUTUBE VIDEO CONFIGURATION */}
+                  {formData.surpriseBoxMediaType === 'youtube' && (
+                    <div className="p-3.5 rounded-xl bg-rose-50/50 dark:bg-stone-800/80 border border-rose-200 dark:border-stone-700 space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-stone-800 dark:text-stone-200 mb-1">
+                          Paste YouTube Video / Romantic Song URL:
+                        </label>
+                        <p className="text-[11px] text-stone-500 mb-2">
+                          Gift Box khulte hi yeh YouTube video box ke andar display hogi.
+                        </p>
+                      </div>
+
+                      <div className="relative">
+                        <Youtube className="w-4 h-4 text-red-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          value={formData.surpriseBoxYoutubeUrl || ''}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              surpriseBoxYoutubeUrl: e.target.value,
+                              surpriseBoxMediaUrl: e.target.value,
+                            })
+                          }
+                          placeholder="https://www.youtube.com/watch?v=..."
+                          className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-850 text-xs text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-rose-400 focus:outline-none"
+                        />
+                      </div>
+
+                      {/* Curated Popular Video Tracks */}
+                      <div className="space-y-1.5 pt-1">
+                        <span className="text-[11px] font-semibold text-stone-600 dark:text-stone-300">
+                          Or Choose from Popular Romantic Tracks:
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                          {[
+                            { name: 'Kesariya - Brahmāstra', url: 'https://www.youtube.com/watch?v=BddP6PYo2gs' },
+                            { name: 'Perfect - Ed Sheeran', url: 'https://www.youtube.com/watch?v=2Vv-BfVoq4g' },
+                            { name: 'Tum Hi Ho - Aashiqui 2', url: 'https://www.youtube.com/watch?v=IJq0yyWug1k' },
+                            { name: 'Until I Found You - Stephen Sanchez', url: 'https://www.youtube.com/watch?v=GxldQ9eX2wo' },
+                          ].map((song) => (
+                            <button
+                              key={song.url}
+                              type="button"
+                              onClick={() => {
+                                setFormData({
+                                  ...formData,
+                                  surpriseBoxYoutubeUrl: song.url,
+                                  surpriseBoxMediaUrl: song.url,
+                                });
+                                sound.playSparkleChime();
+                              }}
+                              className={`text-[10px] p-2 rounded-lg border text-left cursor-pointer transition-all flex items-center justify-between ${
+                                formData.surpriseBoxYoutubeUrl === song.url
+                                  ? 'bg-rose-100 dark:bg-rose-950/80 border-rose-400 text-rose-900 dark:text-rose-200 font-bold'
+                                  : 'bg-white dark:bg-stone-850 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:border-rose-300'
+                              }`}
+                            >
+                              <span className="truncate">{song.name}</span>
+                              {formData.surpriseBoxYoutubeUrl === song.url && (
+                                <Check className="w-3 h-3 text-rose-600 shrink-0" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Video Caption */}
+                      <div className="space-y-1">
+                        <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300">
+                          Caption Note (Optional):
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.surpriseBoxMediaCaption || ''}
+                          onChange={(e) =>
+                            setFormData({ ...formData, surpriseBoxMediaCaption: e.target.value })
+                          }
+                          placeholder="Our favorite song playing for you! ❤️🎶"
+                          className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-850 text-xs text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-rose-400 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* BOTTOM ACTION: Test Surprise Box Unboxing */}
+                  <div className="flex items-center justify-between pt-3 border-t border-stone-100 dark:border-stone-800 flex-wrap gap-2">
+                    <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                      Active Surprise Mode: <strong className="text-rose-600 capitalize">{formData.surpriseBoxMediaType || 'image'}</strong>
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleSave();
+                        onClose();
+                        setTimeout(() => {
+                          const el = document.getElementById('gift-reveal');
+                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 200);
+                      }}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white text-xs font-semibold shadow-xs cursor-pointer transition-all active:scale-95"
+                    >
+                      <Gift className="w-3.5 h-3.5" />
+                      <span>Save & Test Surprise Box 🎁</span>
                     </button>
                   </div>
                 </div>

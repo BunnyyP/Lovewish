@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Gift, Heart, Sparkles, Award, ArrowUp, Share2, Check } from 'lucide-react';
+import { Gift, Heart, Sparkles, Award, Share2, Check, Film, Image as ImageIcon, Maximize2, X, Play, Volume2 } from 'lucide-react';
 import { BirthdayConfig } from '../types';
 import { sound } from '../utils/audio';
 import { fireHeartConfetti, fireFireworks } from '../utils/confetti';
@@ -12,10 +12,21 @@ interface GiftBoxRevealProps {
   onOpenCustomizer: () => void;
 }
 
+function getYouTubeEmbedUrl(url?: string): string | null {
+  if (!url) return null;
+  try {
+    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+    return match ? `https://www.youtube.com/embed/${match[1]}?autoplay=1&rel=0&modestbranding=1` : null;
+  } catch {
+    return null;
+  }
+}
+
 export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) {
   const themeStyles = getThemeStyles(config.theme);
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
 
   const handleOpenGift = () => {
     if (isOpen) return;
@@ -33,6 +44,13 @@ export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) 
     setTimeout(() => setCopied(false), 3000);
   };
 
+  const mediaType = config.surpriseBoxMediaType || 'image';
+  const hasImage = mediaType === 'image' && Boolean(config.surpriseBoxMediaUrl);
+  const hasVideo = mediaType === 'video' && Boolean(config.surpriseBoxMediaUrl);
+  const ytEmbedUrl = mediaType === 'youtube' ? getYouTubeEmbedUrl(config.surpriseBoxYoutubeUrl || config.surpriseBoxMediaUrl) : null;
+  const hasYouTube = mediaType === 'youtube' && Boolean(ytEmbedUrl);
+  const hasMedia = hasImage || hasVideo || hasYouTube;
+
   return (
     <section id="gift-reveal" className="py-20 px-4 max-w-4xl mx-auto text-center relative">
       {/* Header */}
@@ -47,12 +65,12 @@ export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) 
           </span>
         </h2>
         <p className={`text-sm sm:text-base font-sans-clean mt-2 max-w-xl mx-auto font-medium ${themeStyles.sectionSubtitleColor}`}>
-          Tap the gift box below to unwrap your final birthday treasure and lifetime promise.
+          Tap the gift box below to unwrap your final birthday treasure, surprise photo/video, and lifetime promise.
         </p>
       </div>
 
       {/* Interactive 3D Gift Box */}
-      <div className="relative max-w-md mx-auto min-h-[320px] flex flex-col items-center justify-center">
+      <div className="relative max-w-2xl mx-auto min-h-[320px] flex flex-col items-center justify-center">
         {!isOpen ? (
           <motion.div
             initial={{ scale: 0.9 }}
@@ -87,8 +105,8 @@ export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) 
               {/* Horizontal yellow ribbon on box */}
               <div className="absolute inset-x-0 h-8 bg-amber-400 shadow-md" />
 
-              <span className="absolute text-white/90 text-xs font-serif-romantic font-bold tracking-wider z-10 bg-rose-950/60 px-2 py-1 rounded">
-                TAP TO OPEN
+              <span className="absolute text-white/90 text-xs font-serif-romantic font-bold tracking-wider z-10 bg-rose-950/60 px-2.5 py-1 rounded-full shadow-md animate-pulse">
+                ✨ TAP TO OPEN ✨
               </span>
             </div>
 
@@ -98,11 +116,11 @@ export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) 
               className={`mt-8 inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r ${themeStyles.accentBtnGradient} text-white font-semibold text-sm shadow-lg hover:scale-105 active:scale-95 transition-all`}
             >
               <Sparkles className="w-4 h-4 text-amber-200 star-sparkle-anim" />
-              <span>Unwrap Birthday Gift</span>
+              <span>Unwrap Birthday Gift Box</span>
             </button>
           </motion.div>
         ) : (
-          /* Grand Finale Reveal Card */
+          /* Grand Finale Reveal Card with Video / Picture */
           <motion.div
             initial={{ scale: 0.7, opacity: 0, y: 30 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -117,8 +135,98 @@ export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) 
                   Official Lifetime Certificate of Love
                 </span>
               </div>
-              <Heart className="w-5 h-5 text-rose-500 fill-rose-500 animate-pulse" />
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-serif-romantic text-rose-500 font-bold hidden sm:inline">
+                  Surprise Unwrapped! ✨
+                </span>
+                <Heart className="w-5 h-5 text-rose-500 fill-rose-500 animate-pulse" />
+              </div>
             </div>
+
+            {/* SURPRISE MEDIA PRESENTATION (PHOTO / VIDEO / YOUTUBE) */}
+            {hasMedia && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.2 }}
+                className="mb-8 rounded-2xl overflow-hidden border-2 border-rose-400/40 bg-black/5 dark:bg-stone-900/60 shadow-xl relative group"
+              >
+                {/* 1. CUSTOM SURPRISE PHOTO */}
+                {hasImage && config.surpriseBoxMediaUrl && (
+                  <div className="relative flex flex-col items-center">
+                    <div className="relative w-full max-h-[420px] overflow-hidden bg-stone-950 flex items-center justify-center">
+                      <img
+                        src={config.surpriseBoxMediaUrl}
+                        alt={config.surpriseBoxMediaName || 'Surprise Birthday Photo'}
+                        className="w-full h-auto max-h-[420px] object-contain cursor-pointer hover:scale-102 transition-transform duration-300"
+                        onClick={() => setIsPhotoZoomed(true)}
+                      />
+                      {/* Zoom button badge */}
+                      <button
+                        type="button"
+                        onClick={() => setIsPhotoZoomed(true)}
+                        className="absolute bottom-3 right-3 p-2 rounded-xl bg-black/60 hover:bg-black/80 text-white backdrop-blur-md transition-all shadow-md cursor-pointer flex items-center gap-1 text-xs font-semibold"
+                        title="View Fullscreen"
+                      >
+                        <Maximize2 className="w-3.5 h-3.5" />
+                        <span>View Photo</span>
+                      </button>
+                    </div>
+
+                    {/* Photo Caption */}
+                    {config.surpriseBoxMediaCaption && (
+                      <div className="w-full p-3 bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-pink-500/10 border-t border-rose-300/30 text-center">
+                        <p className={`font-serif-romantic text-sm sm:text-base font-semibold ${themeStyles.isDark ? 'text-rose-200' : 'text-rose-900'} italic`}>
+                          "{config.surpriseBoxMediaCaption}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 2. CUSTOM UPLOADED VIDEO */}
+                {hasVideo && config.surpriseBoxMediaUrl && (
+                  <div className="relative flex flex-col items-center bg-black">
+                    <video
+                      src={config.surpriseBoxMediaUrl}
+                      controls
+                      autoPlay={config.surpriseBoxAutoplayVideo !== false}
+                      playsInline
+                      className="w-full max-h-[420px] rounded-t-2xl object-contain bg-black shadow-inner"
+                    />
+                    {config.surpriseBoxMediaCaption && (
+                      <div className="w-full p-3 bg-stone-900 border-t border-stone-800 text-center">
+                        <p className="font-serif-romantic text-sm sm:text-base text-rose-300 italic">
+                          "{config.surpriseBoxMediaCaption}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 3. YOUTUBE VIDEO EMBED */}
+                {hasYouTube && ytEmbedUrl && (
+                  <div className="relative flex flex-col items-center bg-black">
+                    <div className="w-full aspect-video">
+                      <iframe
+                        src={ytEmbedUrl}
+                        title="Surprise Box Video"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                        className="w-full h-full border-0 rounded-t-2xl"
+                      />
+                    </div>
+                    {config.surpriseBoxMediaCaption && (
+                      <div className="w-full p-3 bg-stone-900 border-t border-stone-800 text-center">
+                        <p className="font-serif-romantic text-sm sm:text-base text-rose-300 italic">
+                          "{config.surpriseBoxMediaCaption}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            )}
 
             {/* Finale Title */}
             <h3 className={`font-serif-romantic text-2xl sm:text-3xl font-bold mb-4 ${themeStyles.isDark ? 'text-stone-100' : 'text-stone-900'}`}>
@@ -126,7 +234,7 @@ export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) 
             </h3>
 
             {/* Body */}
-            <p className={`font-casual text-lg sm:text-xl leading-relaxed mb-6 ${themeStyles.isDark ? 'text-stone-300' : 'text-stone-700'}`}>
+            <p className={`font-casual text-lg sm:text-xl leading-relaxed mb-6 whitespace-pre-line ${themeStyles.isDark ? 'text-stone-300' : 'text-stone-700'}`}>
               {config.finaleMessageBody}
             </p>
 
@@ -168,14 +276,60 @@ export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) 
 
               <button
                 onClick={() => setIsOpen(false)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-full ${themeStyles.cardHighlightBg} border ${themeStyles.cardBorder} ${themeStyles.isDark ? 'text-stone-200' : 'text-stone-700'} text-xs sm:text-sm font-medium transition-colors cursor-pointer`}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-full ${themeStyles.cardHighlightBg} border ${themeStyles.cardBorder} ${themeStyles.isDark ? 'text-stone-200' : 'text-stone-700'} text-xs sm:text-sm font-medium transition-colors cursor-pointer hover:scale-102`}
               >
-                <span>Wrap Box Again</span>
+                <span>Wrap Box Again 🎁</span>
+              </button>
+
+              <button
+                onClick={onOpenCustomizer}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-300 text-xs sm:text-sm font-semibold transition-all hover:bg-amber-500/20 cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Customize Surprise Video/Pic ⚙️</span>
               </button>
             </div>
           </motion.div>
         )}
       </div>
+
+      {/* Fullscreen Photo Lightbox Modal */}
+      <AnimatePresence>
+        {isPhotoZoomed && config.surpriseBoxMediaUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+            onClick={() => setIsPhotoZoomed(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.8 }}
+              className="relative max-w-4xl max-h-[90vh] flex flex-col items-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setIsPhotoZoomed(false)}
+                className="absolute -top-12 right-0 p-2 text-white/80 hover:text-white rounded-full bg-white/10 hover:bg-white/20 transition-all cursor-pointer"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <img
+                src={config.surpriseBoxMediaUrl}
+                alt="Surprise Zoom"
+                className="max-w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/20"
+              />
+              {config.surpriseBoxMediaCaption && (
+                <p className="mt-4 text-center font-serif-romantic text-base text-rose-200 italic px-4">
+                  "{config.surpriseBoxMediaCaption}"
+                </p>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }

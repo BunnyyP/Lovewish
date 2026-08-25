@@ -168,6 +168,12 @@ Happy Birthday, my love. Today, tomorrow, and every day after, I am so grateful 
   celebrationVideoUrl: '',
   celebrationVideoName: '',
   celebrationVideoAutoplay: true,
+  surpriseBoxMediaType: 'image',
+  surpriseBoxMediaUrl: 'https://images.unsplash.com/photo-1518895949257-7621c3c786d7?auto=format&fit=crop&w=800&q=80',
+  surpriseBoxMediaName: 'Romantic Roses & Heart',
+  surpriseBoxMediaCaption: 'You are the greatest gift I could ever ask for in this lifetime. Happy Birthday! ❤️✨',
+  surpriseBoxYoutubeUrl: '',
+  surpriseBoxAutoplayVideo: true,
 };
 
 const STORAGE_KEY = 'romantic_birthday_surprise_config_v5';

@@ -89,4 +89,12 @@ export interface BirthdayConfig {
   celebrationVideoUrl?: string; // Base64 video data or URL
   celebrationVideoName?: string;
   celebrationVideoAutoplay?: boolean;
+
+  // Surprise Gift Box Media (Photo or Video on Opening Gift Box)
+  surpriseBoxMediaType?: 'none' | 'image' | 'video' | 'youtube';
+  surpriseBoxMediaUrl?: string; // Image base64 / Image URL / Video base64 / Video URL
+  surpriseBoxMediaName?: string;
+  surpriseBoxMediaCaption?: string;
+  surpriseBoxYoutubeUrl?: string;
+  surpriseBoxAutoplayVideo?: boolean;
 }

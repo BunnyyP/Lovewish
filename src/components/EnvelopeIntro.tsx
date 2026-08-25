@@ -5,6 +5,7 @@ import { BirthdayConfig } from '../types';
 import { sound } from '../utils/audio';
 import { fireHeartConfetti } from '../utils/confetti';
 import { getThemeStyles } from '../utils/themeStyles';
+import { micBlowManager } from '../utils/micManager';
 
 interface EnvelopeIntroProps {
   config: BirthdayConfig;
@@ -24,6 +25,9 @@ export function EnvelopeIntro({ config, onOpen, onOpenCustomizer }: EnvelopeIntr
     sound.primeAudio();
     sound.playWaxSealCrack();
     fireHeartConfetti();
+
+    // Proactively request microphone permission on entry so candles can be blown out in realtime
+    micBlowManager.requestMicPermission().catch(() => {});
 
     const isIntroEnabled = Boolean(config.introMusicEnabled) && config.introMusicType !== 'none';
     const introStartTime = Math.max(0, config.introMusicStartTime ?? 0);
