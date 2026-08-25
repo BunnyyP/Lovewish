@@ -6,7 +6,7 @@ import { sound } from '../utils/audio';
 import { fireHeartConfetti, fireFireworks } from '../utils/confetti';
 import { generateShareUrl } from '../utils/storage';
 import { getThemeStyles } from '../utils/themeStyles';
-import { dataUrlToBlobUrl } from '../utils/media';
+import { dataUrlToBlobUrl, getStreamableMediaUrlAsync } from '../utils/media';
 
 interface GiftBoxRevealProps {
   config: BirthdayConfig;
@@ -52,20 +52,26 @@ export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) 
   const hasYouTube = mediaType === 'youtube' && Boolean(ytEmbedUrl);
   const hasMedia = hasImage || hasVideo || hasYouTube;
 
-  const streamableSurpriseVideoUrl = useMemo(() => {
-    if (!hasVideo || !config.surpriseBoxMediaUrl) return '';
-    return dataUrlToBlobUrl(config.surpriseBoxMediaUrl);
-  }, [hasVideo, config.surpriseBoxMediaUrl]);
+  const [resolvedSurpriseVideoUrl, setResolvedSurpriseVideoUrl] = useState<string>(() => {
+    return hasVideo && config.surpriseBoxMediaUrl ? dataUrlToBlobUrl(config.surpriseBoxMediaUrl) : '';
+  });
 
   useEffect(() => {
-    return () => {
-      if (streamableSurpriseVideoUrl && streamableSurpriseVideoUrl.startsWith('blob:')) {
-        try {
-          URL.revokeObjectURL(streamableSurpriseVideoUrl);
-        } catch {}
-      }
-    };
-  }, [streamableSurpriseVideoUrl]);
+    if (!hasVideo || !config.surpriseBoxMediaUrl) {
+      setResolvedSurpriseVideoUrl('');
+      return;
+    }
+    const syncUrl = dataUrlToBlobUrl(config.surpriseBoxMediaUrl);
+    setResolvedSurpriseVideoUrl(syncUrl);
+
+    if (config.surpriseBoxMediaUrl.startsWith('data:')) {
+      getStreamableMediaUrlAsync(config.surpriseBoxMediaUrl).then((url) => {
+        if (url && url !== syncUrl) {
+          setResolvedSurpriseVideoUrl(url);
+        }
+      });
+    }
+  }, [hasVideo, config.surpriseBoxMediaUrl]);
 
   return (
     <section id="gift-reveal" className="py-20 px-4 max-w-4xl mx-auto text-center relative">
@@ -204,11 +210,18 @@ export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) 
                 {hasVideo && config.surpriseBoxMediaUrl && (
                   <div className="relative flex flex-col items-center bg-black">
                     <video
-                      src={streamableSurpriseVideoUrl || config.surpriseBoxMediaUrl}
+                      src={resolvedSurpriseVideoUrl || config.surpriseBoxMediaUrl}
                       controls
                       autoPlay={config.surpriseBoxAutoplayVideo !== false}
                       playsInline
+                      loop
                       preload="auto"
+                      onWaiting={(e) => {
+                        e.currentTarget.play().catch(() => {});
+                      }}
+                      onStalled={(e) => {
+                        e.currentTarget.play().catch(() => {});
+                      }}
                       className="w-full max-h-[420px] rounded-t-2xl object-contain bg-black shadow-inner"
                     />
                     {config.surpriseBoxMediaCaption && (

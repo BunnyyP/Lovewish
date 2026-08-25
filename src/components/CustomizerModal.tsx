@@ -47,7 +47,7 @@ import {
 import { BirthdayConfig, PolaroidPhoto, LoveReason, LoveCoupon, ThemeType } from '../types';
 import { saveConfig, generateShareUrl, DEFAULT_BIRTHDAY_CONFIG } from '../utils/storage';
 import { sound } from '../utils/audio';
-import { extractYouTubeId } from '../utils/media';
+import { extractYouTubeId, dataUrlToBlobUrl } from '../utils/media';
 import { CelebrationVideoModal } from './CelebrationVideoModal';
 
 interface CustomizerModalProps {
@@ -347,6 +347,8 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
     reader.onload = (e) => {
       if (e.target?.result) {
         const base64 = e.target.result as string;
+        // Pre-warm conversion to streamable Blob URL so it plays seamlessly without 4-second stalls
+        dataUrlToBlobUrl(base64);
         setFormData((prev) => ({
           ...prev,
           celebrationVideoType: 'upload',

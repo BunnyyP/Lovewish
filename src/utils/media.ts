@@ -3,6 +3,8 @@
  * and handling file conversions.
  */
 
+const blobUrlCache = new Map<string, string>();
+
 /**
  * Convert a base64 data: URI to a native streamable Blob URL (blob:...)
  * This is CRITICAL for HTML5 <video> and <audio> elements in browsers because data: URIs
@@ -10,25 +12,88 @@
  * Blob URLs support full seekable streaming and continuous playback for full duration!
  */
 export function dataUrlToBlobUrl(dataUrl: string): string {
-  if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) {
+  if (!dataUrl || typeof dataUrl !== 'string') {
+    return '';
+  }
+
+  // If already a streamable blob URL or external http/https URL, return directly
+  if (dataUrl.startsWith('blob:') || dataUrl.startsWith('http://') || dataUrl.startsWith('https://')) {
     return dataUrl;
   }
+
+  if (!dataUrl.startsWith('data:')) {
+    return dataUrl;
+  }
+
+  // Check cache first for instant retrieval
+  if (blobUrlCache.has(dataUrl)) {
+    return blobUrlCache.get(dataUrl)!;
+  }
+
   try {
-    const parts = dataUrl.split(',');
-    if (parts.length < 2) return dataUrl;
-    const mimeMatch = parts[0].match(/:(.*?);/);
+    const commaIdx = dataUrl.indexOf(',');
+    if (commaIdx === -1) return dataUrl;
+
+    const meta = dataUrl.substring(0, commaIdx);
+    const rawData = dataUrl.substring(commaIdx + 1);
+
+    const mimeMatch = meta.match(/:(.*?);/);
     const mime = mimeMatch ? mimeMatch[1] : 'video/mp4';
-    const binary = atob(parts[1]);
+
+    // Clean whitespace and normalize base64
+    const cleanBase64 = rawData.replace(/[\s\r\n]+/g, '');
+    const binary = atob(cleanBase64);
     const len = binary.length;
     const buffer = new Uint8Array(len);
+
+    // Fast block copy
     for (let i = 0; i < len; i++) {
       buffer[i] = binary.charCodeAt(i);
     }
+
     const blob = new Blob([buffer], { type: mime });
-    return URL.createObjectURL(blob);
+    const blobUrl = URL.createObjectURL(blob);
+    blobUrlCache.set(dataUrl, blobUrl);
+    return blobUrl;
   } catch (err) {
-    console.warn('Failed to convert dataUrl to Blob URL, returning original:', err);
+    console.warn('Sync dataUrlToBlobUrl error, attempting fetch fallback:', err);
+    // Fallback: asynchronously convert via browser fetch API and cache it
+    try {
+      fetch(dataUrl)
+        .then((res) => res.blob())
+        .then((blob) => {
+          const blobUrl = URL.createObjectURL(blob);
+          blobUrlCache.set(dataUrl, blobUrl);
+        })
+        .catch(() => {});
+    } catch {}
     return dataUrl;
+  }
+}
+
+/**
+ * Asynchronously ensure any media URL (especially large base64 video) is converted
+ * to a full hardware-accelerated streamable Blob URL.
+ */
+export async function getStreamableMediaUrlAsync(url: string): Promise<string> {
+  if (!url || typeof url !== 'string') return '';
+  if (url.startsWith('blob:') || url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  if (!url.startsWith('data:')) return url;
+
+  if (blobUrlCache.has(url)) {
+    return blobUrlCache.get(url)!;
+  }
+
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    blobUrlCache.set(url, blobUrl);
+    return blobUrl;
+  } catch {
+    return dataUrlToBlobUrl(url);
   }
 }
 

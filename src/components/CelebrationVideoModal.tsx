@@ -15,7 +15,7 @@ import {
   Pause,
 } from 'lucide-react';
 import { BirthdayConfig } from '../types';
-import { getYouTubeEmbedUrl, dataUrlToBlobUrl } from '../utils/media';
+import { getYouTubeEmbedUrl, dataUrlToBlobUrl, getStreamableMediaUrlAsync } from '../utils/media';
 import { sound } from '../utils/audio';
 
 interface CelebrationVideoModalProps {
@@ -61,21 +61,27 @@ export function CelebrationVideoModal({
     : null;
 
   // Convert base64 data URI to native streamable blob URL to prevent 4-second browser stall
-  const streamableVideoUrl = useMemo(() => {
-    if (!config.celebrationVideoUrl) return '';
-    return dataUrlToBlobUrl(config.celebrationVideoUrl);
-  }, [config.celebrationVideoUrl]);
+  const [resolvedBlobUrl, setResolvedBlobUrl] = useState<string>(() => {
+    return dataUrlToBlobUrl(config.celebrationVideoUrl || '');
+  });
 
-  // Clean up blob URL on unmount if created
   useEffect(() => {
-    return () => {
-      if (streamableVideoUrl && streamableVideoUrl.startsWith('blob:')) {
-        try {
-          URL.revokeObjectURL(streamableVideoUrl);
-        } catch {}
-      }
-    };
-  }, [streamableVideoUrl]);
+    if (!config.celebrationVideoUrl) {
+      setResolvedBlobUrl('');
+      return;
+    }
+    const syncUrl = dataUrlToBlobUrl(config.celebrationVideoUrl);
+    setResolvedBlobUrl(syncUrl);
+
+    // Asynchronous background conversion for extra large video files
+    if (config.celebrationVideoUrl.startsWith('data:')) {
+      getStreamableMediaUrlAsync(config.celebrationVideoUrl).then((url) => {
+        if (url && url !== syncUrl) {
+          setResolvedBlobUrl(url);
+        }
+      });
+    }
+  }, [config.celebrationVideoUrl]);
 
   // Rich, cheerful lyric sequence that cycles smoothly for any duration (15s, 25s, 30s, etc.)
   const songLyrics = [
@@ -185,7 +191,7 @@ export function CelebrationVideoModal({
 
   // Video autoplay, stall-recovery & continuous playback handler for custom uploaded/URL video
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !isCustomUploadOrUrl) return;
 
     let retryTimer: number | null = null;
 
@@ -223,7 +229,7 @@ export function CelebrationVideoModal({
     return () => {
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [isOpen, streamableVideoUrl]);
+  }, [isOpen, resolvedBlobUrl, isCustomUploadOrUrl]);
 
   const togglePlayPause = () => {
     const next = !isPlaying;
@@ -387,9 +393,10 @@ export function CelebrationVideoModal({
             <div className="relative w-full h-full flex items-center justify-center bg-black">
               <video
                 ref={videoRef}
-                src={streamableVideoUrl || config.celebrationVideoUrl}
+                src={resolvedBlobUrl || config.celebrationVideoUrl}
                 autoPlay
                 controls
+                muted={isMuted}
                 playsInline
                 loop
                 preload="auto"
@@ -405,8 +412,15 @@ export function CelebrationVideoModal({
                 }}
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => {
-                  // Only mark paused if modal is open and not intentional
                   if (!isOpen) return;
+                }}
+                onWaiting={(e) => {
+                  // Buffer/stall recovery
+                  e.currentTarget.play().catch(() => {});
+                }}
+                onStalled={(e) => {
+                  // Connection/stream recovery
+                  e.currentTarget.play().catch(() => {});
                 }}
                 onEnded={() => {
                   if (videoRef.current) {
