@@ -147,6 +147,16 @@ export function CelebrationVideoModal({
     sound.primeAudio();
     sound.playCelebrationPop();
 
+    // Ensure background music keeps playing seamlessly without stopping
+    const isBgMusicConfigured = config.bgMusicEnabled !== false && config.musicType !== 'none';
+    if (isBgMusicConfigured && !sound.getIsPlaying()) {
+      sound.startBackgroundMusic({
+        startTime: config.bgMusicStartTime ?? 0,
+        endTime: config.bgMusicEndTime ?? 0,
+        loop: config.bgMusicLoop !== false,
+      });
+    }
+
     // If default squirrel singing mode or custom video without native sound
     if (config.celebrationVideoType === 'default' || !config.celebrationVideoUrl) {
       sound.playHappyBirthdaySong(true);
@@ -171,7 +181,7 @@ export function CelebrationVideoModal({
       }
       sound.stopHappyBirthdaySong();
     };
-  }, [isOpen, config.celebrationVideoType, config.celebrationVideoUrl, config.recipientNickname, config.recipientName]);
+  }, [isOpen, config.celebrationVideoType, config.celebrationVideoUrl, config.recipientNickname, config.recipientName, config.bgMusicEnabled, config.musicType, config.bgMusicStartTime, config.bgMusicEndTime, config.bgMusicLoop]);
 
   // Video autoplay, stall-recovery & continuous playback handler for custom uploaded/URL video
   useEffect(() => {

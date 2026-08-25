@@ -279,14 +279,14 @@ class SoundEngine {
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume().catch(() => {});
     }
-    // Unmute/unlock HTML5 audio element within user gesture
-    if (this.customAudio) {
+    // Only pre-warm customAudio if NOT already playing
+    if (this.customAudio && !this.isMusicPlaying) {
       try {
         this.customAudio.volume = 0;
         const p = this.customAudio.play();
         if (p !== undefined) {
           p.then(() => {
-            if (this.customAudio) {
+            if (this.customAudio && !this.isMusicPlaying) {
               this.customAudio.pause();
               this.customAudio.currentTime = 0;
               this.customAudio.volume = 0.9;
