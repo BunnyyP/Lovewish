@@ -6,7 +6,7 @@ import { sound } from '../utils/audio';
 import { fireHeartConfetti, fireFireworks } from '../utils/confetti';
 import { generateShareUrl } from '../utils/storage';
 import { getThemeStyles } from '../utils/themeStyles';
-import { dataUrlToBlobUrl, getStreamableMediaUrlAsync } from '../utils/media';
+import { dataUrlToBlobUrl, getStreamableMediaUrlAsync, getGoogleDriveEmbedUrl, isGoogleDriveUrl } from '../utils/media';
 
 interface GiftBoxRevealProps {
   config: BirthdayConfig;
@@ -50,7 +50,11 @@ export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) 
   const hasVideo = mediaType === 'video' && Boolean(config.surpriseBoxMediaUrl);
   const ytEmbedUrl = mediaType === 'youtube' ? getYouTubeEmbedUrl(config.surpriseBoxYoutubeUrl || config.surpriseBoxMediaUrl) : null;
   const hasYouTube = mediaType === 'youtube' && Boolean(ytEmbedUrl);
-  const hasMedia = hasImage || hasVideo || hasYouTube;
+  const driveEmbedUrl = (mediaType === 'drive' || (mediaType === 'video' && isGoogleDriveUrl(config.surpriseBoxMediaUrl || '')))
+    ? getGoogleDriveEmbedUrl(config.surpriseBoxMediaUrl || '')
+    : null;
+  const hasDrive = Boolean(driveEmbedUrl);
+  const hasMedia = hasImage || hasVideo || hasYouTube || hasDrive;
 
   const [resolvedSurpriseVideoUrl, setResolvedSurpriseVideoUrl] = useState<string>(() => {
     return hasVideo && config.surpriseBoxMediaUrl ? dataUrlToBlobUrl(config.surpriseBoxMediaUrl) : '';
@@ -242,6 +246,28 @@ export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) 
                         src={ytEmbedUrl}
                         title="Surprise Box Video"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                        className="w-full h-full border-0 rounded-t-2xl"
+                      />
+                    </div>
+                    {config.surpriseBoxMediaCaption && (
+                      <div className="w-full p-3 bg-stone-900 border-t border-stone-800 text-center">
+                        <p className="font-serif-romantic text-sm sm:text-base text-rose-300 italic">
+                          "{config.surpriseBoxMediaCaption}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 4. GOOGLE DRIVE VIDEO EMBED (STALL-FREE) */}
+                {hasDrive && driveEmbedUrl && (
+                  <div className="relative flex flex-col items-center bg-black">
+                    <div className="w-full aspect-video">
+                      <iframe
+                        src={driveEmbedUrl}
+                        title="Surprise Box Google Drive Video"
+                        allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen
                         className="w-full h-full border-0 rounded-t-2xl"
                       />

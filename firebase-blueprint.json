@@ -1,0 +1,28 @@
+{
+  "entities": {
+    "app_config": {
+      "title": "App Configuration",
+      "description": "Global website configuration synchronized across all visitors and domains",
+      "type": "object",
+      "properties": {
+        "config": {
+          "type": "object",
+          "description": "Complete birthday and romantic journey configuration"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last update"
+        }
+      },
+      "required": ["config", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "collections": {
+      "app_config": {
+        "entity": "app_config",
+        "description": "Global customizer configuration document"
+      }
+    }
+  }
+}

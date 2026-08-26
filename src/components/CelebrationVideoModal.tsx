@@ -15,7 +15,14 @@ import {
   Pause,
 } from 'lucide-react';
 import { BirthdayConfig } from '../types';
-import { getYouTubeEmbedUrl, dataUrlToBlobUrl, getStreamableMediaUrlAsync } from '../utils/media';
+import {
+  getYouTubeEmbedUrl,
+  extractYouTubeId,
+  dataUrlToBlobUrl,
+  getStreamableMediaUrlAsync,
+  isGoogleDriveUrl,
+  getGoogleDriveEmbedUrl,
+} from '../utils/media';
 import { sound } from '../utils/audio';
 
 interface CelebrationVideoModalProps {
@@ -49,16 +56,28 @@ export function CelebrationVideoModal({
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
-  const isCustomUploadOrUrl =
-    (config.celebrationVideoType === 'upload' || config.celebrationVideoType === 'url') &&
+  const isDrive =
+    (config.celebrationVideoType === 'drive' || isGoogleDriveUrl(config.celebrationVideoUrl || '')) &&
     Boolean(config.celebrationVideoUrl);
 
+  const googleDriveEmbedUrl = isDrive
+    ? getGoogleDriveEmbedUrl(config.celebrationVideoUrl || '')
+    : null;
+
   const isYouTube =
-    config.celebrationVideoType === 'youtube' && Boolean(config.celebrationVideoUrl);
+    !isDrive &&
+    (config.celebrationVideoType === 'youtube' || Boolean(extractYouTubeId(config.celebrationVideoUrl || ''))) &&
+    Boolean(config.celebrationVideoUrl);
 
   const youtubeEmbedUrl = isYouTube
     ? getYouTubeEmbedUrl(config.celebrationVideoUrl || '', true, true)
     : null;
+
+  const isCustomUploadOrUrl =
+    !isDrive &&
+    !isYouTube &&
+    (config.celebrationVideoType === 'upload' || config.celebrationVideoType === 'url') &&
+    Boolean(config.celebrationVideoUrl);
 
   // Convert base64 data URI to native streamable blob URL to prevent 4-second browser stall
   const [resolvedBlobUrl, setResolvedBlobUrl] = useState<string>(() => {
@@ -388,8 +407,18 @@ export function CelebrationVideoModal({
 
         {/* Video / Animated Stage */}
         <div className="relative aspect-[9/14] sm:aspect-square w-full bg-[#fffbee] dark:bg-stone-950 flex flex-col items-center justify-center overflow-hidden border-b border-rose-100 dark:border-stone-800">
-          {/* CUSTOM UPLOADED OR DIRECT URL VIDEO */}
-          {isCustomUploadOrUrl ? (
+          {/* GOOGLE DRIVE EMBED VIDEO (100% STALL-FREE STREAMING) */}
+          {isDrive && googleDriveEmbedUrl ? (
+            <div className="relative w-full h-full flex items-center justify-center bg-black">
+              <iframe
+                src={googleDriveEmbedUrl}
+                title="Google Drive Birthday Celebration Video"
+                allow="autoplay; encrypted-media; fullscreen"
+                allowFullScreen
+                className="w-full h-full border-0"
+              />
+            </div>
+          ) : isCustomUploadOrUrl ? (
             <div className="relative w-full h-full flex items-center justify-center bg-black">
               <video
                 ref={videoRef}

@@ -1,4 +1,9 @@
 import { BirthdayConfig } from '../types';
+import {
+  saveConfigToFirestore,
+  loadConfigFromFirestore,
+  subscribeToFirestoreConfig,
+} from '../services/firestoreService';
 
 export const DEFAULT_BIRTHDAY_CONFIG: BirthdayConfig = {
   siteLockEnabled: true,
@@ -331,9 +336,10 @@ export async function saveConfigToServer(config: BirthdayConfig): Promise<boolea
 }
 
 /**
- * Asynchronously initialize persistent storage from the central server (/api/config),
- * then falls back to IndexedDB and localStorage.
- * This guarantees that changes saved in Customization are globally visible to ALL visitors!
+ * Asynchronously initialize persistent storage from Cloud Firestore,
+ * then server (/api/config), IndexedDB, and localStorage.
+ * This guarantees that changes saved in Customization are globally visible to ALL visitors
+ * across any device, domain (e.g. www.bunnypatel.com), or IP address!
  */
 export async function initPersistentStorage(onLoaded: (config: BirthdayConfig) => void): Promise<void> {
   // If URL hash was provided, hash takes priority for custom direct links
@@ -341,7 +347,49 @@ export async function initPersistentStorage(onLoaded: (config: BirthdayConfig) =
     return;
   }
 
-  // 1. First priority: Check central server for the global customized surprise configuration
+  // 1. TOP PRIORITY: Load live global config from Google Cloud Firestore
+  try {
+    const firestoreConfig = await loadConfigFromFirestore();
+    if (firestoreConfig && firestoreConfig.recipientName) {
+      const custPass =
+        firestoreConfig.customizationPassword && firestoreConfig.customizationPassword !== 'Merijaan'
+          ? firestoreConfig.customizationPassword
+          : 'HoneyBunny';
+
+      const merged: BirthdayConfig = {
+        ...DEFAULT_BIRTHDAY_CONFIG,
+        ...firestoreConfig,
+        siteLockPassword: firestoreConfig.siteLockPassword || 'Merijaan',
+        customizationPassword: custPass,
+      };
+
+      // Cache locally
+      saveToIndexedDB(merged);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      } catch {}
+
+      onLoaded(merged);
+
+      // Subscribe to real-time updates from Firestore so visitors get live sync
+      subscribeToFirestoreConfig((liveConfig) => {
+        if (liveConfig && liveConfig.recipientName) {
+          const liveMerged: BirthdayConfig = {
+            ...DEFAULT_BIRTHDAY_CONFIG,
+            ...liveConfig,
+            siteLockPassword: liveConfig.siteLockPassword || 'Merijaan',
+            customizationPassword: liveConfig.customizationPassword || 'HoneyBunny',
+          };
+          onLoaded(liveMerged);
+        }
+      });
+      return;
+    }
+  } catch (e) {
+    console.warn('Firestore initial load error:', e);
+  }
+
+  // 2. Second priority: Check central server /api/config
   try {
     const serverConfig = await fetchGlobalConfig();
     if (serverConfig && serverConfig.recipientName) {
@@ -357,7 +405,6 @@ export async function initPersistentStorage(onLoaded: (config: BirthdayConfig) =
         customizationPassword: custPass,
       };
 
-      // Cache locally as well
       saveToIndexedDB(merged);
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
@@ -370,7 +417,7 @@ export async function initPersistentStorage(onLoaded: (config: BirthdayConfig) =
     console.warn('Server fetch check skipped:', e);
   }
 
-  // 2. Second priority: Fall back to high-capacity IndexedDB
+  // 3. Third priority: Fall back to high-capacity IndexedDB
   const idbConfig = await loadFromIndexedDB();
   if (idbConfig && idbConfig.recipientName) {
     const custPass =
@@ -390,22 +437,26 @@ export async function initPersistentStorage(onLoaded: (config: BirthdayConfig) =
 
 /**
  * Saves the configuration permanently:
- * 1. Sends to Server (/api/config) so ALL visitors from ANY device see this configuration
- * 2. Saves to IndexedDB (for full capacity)
- * 3. Saves to localStorage (for fast boot cache)
+ * 1. Cloud Firestore (so ALL visitors on any domain like www.bunnypatel.com immediately see it)
+ * 2. Express Server (/api/config)
+ * 3. IndexedDB (for high-capacity local offline store)
+ * 4. localStorage (for immediate fast synchronous boot)
  */
 export function saveConfig(config: BirthdayConfig) {
-  // 1. Save globally to central server for all visitors
+  // 1. Save globally to Cloud Firestore for all worldwide visitors
+  saveConfigToFirestore(config);
+
+  // 2. Save to central Express server
   saveConfigToServer(config);
 
-  // 2. Save to high-capacity IndexedDB
+  // 3. Save to high-capacity IndexedDB
   saveToIndexedDB(config);
 
-  // 3. Save to localStorage (with fallback if audio/video base64 is too large for 5MB limit)
+  // 4. Save to localStorage (with fallback if media base64 is too large)
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
   } catch (e) {
-    console.warn('localStorage quota exceeded (likely due to large audio/video base64). Saving lightweight copy to localStorage while full file is safe in IndexedDB.');
+    console.warn('localStorage quota exceeded. Saving lightweight copy to localStorage while full copy is safe in Firestore and IndexedDB.');
     try {
       const lightweight = {
         ...config,

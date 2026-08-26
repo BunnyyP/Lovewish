@@ -2197,13 +2197,19 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
                   </div>
 
                   {/* Video Type Options */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 pt-1">
                     {[
                       {
                         type: 'default',
                         label: 'Singing Squirrel Song',
                         desc: 'Viral cute hamster singing Happy Birthday',
                         badge: 'Default',
+                      },
+                      {
+                        type: 'drive',
+                        label: 'Google Drive Video 🚀',
+                        desc: '100% Stall-free Google Drive link',
+                        badge: 'Recommended',
                       },
                       {
                         type: 'upload',
@@ -2257,6 +2263,36 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
                       );
                     })}
                   </div>
+
+                  {/* 0. GOOGLE DRIVE CELEBRATION VIDEO */}
+                  {formData.celebrationVideoType === 'drive' && (
+                    <div className="p-3.5 rounded-xl bg-amber-50/70 dark:bg-stone-800 border border-amber-300 dark:border-stone-700 space-y-2.5">
+                      <div>
+                        <label className="block text-xs font-bold text-stone-800 dark:text-stone-200 mb-0.5">
+                          Paste Google Drive Video Link (Bina ruke chalega):
+                        </label>
+                        <p className="text-[11px] text-stone-600 dark:text-stone-400">
+                          Apne Google Drive video ka Share link (Anyone with the link can view) yahan paste karein.
+                        </p>
+                      </div>
+                      <input
+                        type="url"
+                        value={formData.celebrationVideoUrl || ''}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            celebrationVideoUrl: e.target.value,
+                            celebrationVideoType: 'drive',
+                          })
+                        }
+                        placeholder="https://drive.google.com/file/d/1A2B3C.../view?usp=sharing"
+                        className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-850 text-xs text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-amber-400 focus:outline-none"
+                      />
+                      <p className="text-[10px] text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                        <span>💡 Tip: Google Drive me video file par Right Click ➔ Share ➔ &quot;Anyone with the link&quot; set karein.</span>
+                      </p>
+                    </div>
+                  )}
 
                   {/* 1. UPLOAD CUSTOM CELEBRATION VIDEO */}
                   {formData.celebrationVideoType === 'upload' && (
@@ -2478,7 +2514,7 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
                   </div>
 
                   {/* Media Type Options */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 pt-1">
                     {[
                       {
                         type: 'image',
@@ -2486,6 +2522,13 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
                         desc: 'Upload photo from phone or pick preset',
                         badge: 'Photo / Pic',
                         icon: ImageIcon,
+                      },
+                      {
+                        type: 'drive',
+                        label: 'Google Drive Video 🚀',
+                        desc: 'Play video smoothly from Drive link',
+                        badge: 'Stall-Free',
+                        icon: Film,
                       },
                       {
                         type: 'video',
@@ -2546,6 +2589,47 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
                       );
                     })}
                   </div>
+
+                  {/* 0. GOOGLE DRIVE VIDEO FOR SURPRISE BOX */}
+                  {formData.surpriseBoxMediaType === 'drive' && (
+                    <div className="p-3.5 rounded-xl bg-rose-50/50 dark:bg-stone-800/80 border border-rose-200 dark:border-stone-700 space-y-3">
+                      <div>
+                        <label className="block text-xs font-bold text-stone-800 dark:text-stone-200 mb-0.5">
+                          Paste Google Drive Video Link for Surprise Gift Box:
+                        </label>
+                        <p className="text-[11px] text-stone-500">
+                          Recipient jab gift box unwrap karega, to yeh video bina buffer kiye chalegi.
+                        </p>
+                      </div>
+                      <input
+                        type="url"
+                        value={formData.surpriseBoxMediaUrl || ''}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            surpriseBoxMediaUrl: e.target.value,
+                            surpriseBoxMediaType: 'drive',
+                          })
+                        }
+                        placeholder="https://drive.google.com/file/d/1A2B3C.../view?usp=sharing"
+                        className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-850 text-xs text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-rose-400 focus:outline-none"
+                      />
+                      <div className="space-y-1">
+                        <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300">
+                          Video Caption (Video ke niche sandesh):
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.surpriseBoxMediaCaption || ''}
+                          onChange={(e) =>
+                            setFormData({ ...formData, surpriseBoxMediaCaption: e.target.value })
+                          }
+                          placeholder="A special video message made just for you! ❤️"
+                          className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-850 text-xs text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-rose-400 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   {/* 1. PHOTO / PIC CONFIGURATION */}
                   {formData.surpriseBoxMediaType === 'image' && (

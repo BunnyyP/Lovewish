@@ -27,6 +27,7 @@ export interface LoveCoupon {
 export type ThemeType =
   | 'rose'
   | 'couple-love'
+  | 'celestial-stardust'
   | 'surprise'
   | 'midnight'
   | 'sensual-passion'
@@ -50,6 +51,7 @@ export interface BirthdayConfig {
   relationshipStartDate?: string; // YYYY-MM-DD
   customizationPassword?: string;
   theme: ThemeType;
+  viewMode?: 'storybook' | 'scroll'; // Storybook Paginated Journey vs Single Page Scroll
   loveLetterTitle: string;
   loveLetterBody: string;
   secretWishPrompt: string;
@@ -85,15 +87,15 @@ export interface BirthdayConfig {
   introMusicYoutubeUrl?: string; // YouTube audio for intro
 
   // Candle Celebration Video
-  celebrationVideoType?: 'default' | 'upload' | 'youtube' | 'url';
-  celebrationVideoUrl?: string; // Base64 video data or URL
+  celebrationVideoType?: 'default' | 'upload' | 'youtube' | 'drive' | 'url';
+  celebrationVideoUrl?: string; // Base64 video data, Google Drive URL, YouTube URL, or direct MP4 URL
   celebrationVideoName?: string;
   celebrationVideoAutoplay?: boolean;
   celebrationVideoDuration?: number; // Auto close play time in seconds (default: 15s)
 
   // Surprise Gift Box Media (Photo or Video on Opening Gift Box)
-  surpriseBoxMediaType?: 'none' | 'image' | 'video' | 'youtube';
-  surpriseBoxMediaUrl?: string; // Image base64 / Image URL / Video base64 / Video URL
+  surpriseBoxMediaType?: 'none' | 'image' | 'video' | 'youtube' | 'drive';
+  surpriseBoxMediaUrl?: string; // Image base64 / Image URL / Video base64 / Video URL / Google Drive URL
   surpriseBoxMediaName?: string;
   surpriseBoxMediaCaption?: string;
   surpriseBoxYoutubeUrl?: string;

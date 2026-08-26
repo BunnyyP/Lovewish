@@ -131,3 +131,49 @@ export function getYouTubeEmbedUrl(urlOrId: string, autoPlay = true, loop = true
   });
   return `https://www.youtube.com/embed/${id}?${params.toString()}`;
 }
+
+/**
+ * Detect if a URL is from Google Drive
+ */
+export function isGoogleDriveUrl(url: string): boolean {
+  if (!url || typeof url !== 'string') return false;
+  return /drive\.google\.com|docs\.google\.com/i.test(url);
+}
+
+/**
+ * Extract the unique file ID from any Google Drive link
+ */
+export function extractGoogleDriveId(url: string): string | null {
+  if (!url || typeof url !== 'string') return null;
+  const trimmed = url.trim();
+
+  // Matches /file/d/FILE_ID/...
+  const fileDMatch = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (fileDMatch && fileDMatch[1]) {
+    return fileDMatch[1];
+  }
+
+  // Matches ?id=FILE_ID or &id=FILE_ID
+  const idParamMatch = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (idParamMatch && idParamMatch[1]) {
+    return idParamMatch[1];
+  }
+
+  // Matches /d/FILE_ID/
+  const dMatch = trimmed.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (dMatch && dMatch[1]) {
+    return dMatch[1];
+  }
+
+  return null;
+}
+
+/**
+ * Converts any Google Drive link to a 100% stall-free preview iframe embed URL.
+ * This plays videos of any length without byte-range stalls!
+ */
+export function getGoogleDriveEmbedUrl(url: string): string | null {
+  const id = extractGoogleDriveId(url);
+  if (!id) return null;
+  return `https://drive.google.com/file/d/${id}/preview`;
+}

@@ -44,6 +44,38 @@ export interface ThemeStyles {
 
 export function getThemeStyles(theme?: ThemeType): ThemeStyles {
   switch (theme) {
+    case 'celestial-stardust':
+      return {
+        canvasBg: 'bg-gradient-to-b from-[#0a0518] via-[#0f0a26] via-[#1a0b2e] to-[#060210]',
+        isDark: true,
+        heroTitleGradient: 'from-amber-100 via-rose-200 to-indigo-200',
+        nameGlowClass: 'font-glow-midnight',
+        nameGradient: 'from-amber-200 via-rose-300 via-purple-200 to-cyan-200',
+        subtitleColor: 'text-rose-200 font-semibold drop-shadow-md',
+        sectionHeaderGradient: 'from-amber-100 via-rose-200 to-indigo-200',
+        sectionSubtitleColor: 'text-indigo-200/90 font-medium',
+        cardBg: 'bg-indigo-950/70 backdrop-blur-xl',
+        cardBorder: 'border-indigo-500/40 hover:border-rose-400/70 shadow-[0_8px_35px_rgba(99,102,241,0.25)]',
+        cardTitleColor: 'text-amber-100 font-bold',
+        cardBodyColor: 'text-stone-100',
+        cardMutedColor: 'text-indigo-200/80',
+        cardHighlightBg: 'bg-indigo-900/60 border-indigo-700/60',
+        letterPaperBg: 'bg-[#120824]',
+        letterPaperBorder: 'border-indigo-400/50 shadow-[0_0_50px_rgba(168,85,247,0.35)]',
+        letterTitleColor: 'text-amber-200',
+        letterBodyColor: 'text-stone-100',
+        letterSignatureColor: 'text-rose-300 font-glow-rose',
+        counterNumberColor: 'text-amber-300 font-glow-gold',
+        counterLabelColor: 'text-indigo-200 font-medium',
+        counterCardBg: 'bg-indigo-950/80 border-indigo-800/70 shadow-inner',
+        badgeBg: 'bg-indigo-950/90',
+        badgeText: 'text-amber-200 font-semibold',
+        badgeBorder: 'border-amber-300/50 shadow-[0_0_15px_rgba(251,191,36,0.45)]',
+        glowColor: 'rgba(168, 85, 247, 0.65)',
+        sparkleColor: '#fde047',
+        accentBtnGradient: 'from-indigo-600 via-rose-600 to-amber-500',
+      };
+
     case 'couple-love':
       return {
         canvasBg: 'bg-gradient-to-b from-[#2a0813] via-[#1a040b] to-[#0d0206]',
