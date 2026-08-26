@@ -8,6 +8,7 @@ import {
   Firestore,
 } from 'firebase/firestore';
 import { BirthdayConfig } from '../types';
+import { compressBase64Image } from '../utils/imageCompressor';
 
 // Firebase configuration from provisioned environment
 const firebaseConfig = {
@@ -23,44 +24,68 @@ const firebaseConfig = {
 const CONFIG_COLLECTION = 'app_config';
 const CONFIG_DOC_ID = 'global_birthday_config';
 
-let firestoreDb: Firestore | null = null;
+let primaryDb: Firestore | null = null;
+let defaultDb: Firestore | null = null;
 
-function getDb(): Firestore | null {
-  if (typeof window === 'undefined') return null;
-  if (!firestoreDb) {
-    try {
-      const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-      // Initialize with specific database ID if specified
-      if (firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)') {
-        firestoreDb = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-      } else {
-        firestoreDb = getFirestore(app);
+function getFirebaseDatabases(): { named: Firestore | null; defaultDb: Firestore | null } {
+  if (typeof window === 'undefined') return { named: null, defaultDb: null };
+  try {
+    const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+    if (!primaryDb && firebaseConfig.firestoreDatabaseId) {
+      try {
+        primaryDb = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+      } catch (err) {
+        console.warn('Could not init named firestore db:', err);
       }
-    } catch (err) {
-      console.warn('Failed to initialize Firebase Firestore:', err);
     }
+    if (!defaultDb) {
+      try {
+        defaultDb = getFirestore(app);
+      } catch (err) {
+        console.warn('Could not init default firestore db:', err);
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to initialize Firebase app:', err);
   }
-  return firestoreDb;
+  return { named: primaryDb, defaultDb: defaultDb };
 }
 
 /**
- * Strips excessively large local base64 blobs from the cloud sync payload
- * to stay safely within Firestore's 1MB document limit.
- * Remote URLs (Google Drive, YouTube, Unsplash, external media) are 100% preserved.
+ * Prepares and compresses the config object so it stays safely under Firestore's 1MB limit.
  */
-function sanitizeConfigForFirestore(config: BirthdayConfig): Record<string, any> {
-  const sanitized = { ...config } as Record<string, any>;
+async function prepareConfigForFirestore(config: BirthdayConfig): Promise<Record<string, any>> {
+  const sanitized = JSON.parse(JSON.stringify(config)) as Record<string, any>;
 
-  // If polaroids have huge base64 strings that exceed total limit, limit base64 length or preserve
+  // 1. Compress polaroid images so each photo is ~20KB - 40KB
   if (Array.isArray(sanitized.polaroids)) {
-    sanitized.polaroids = sanitized.polaroids.map((p) => ({
-      ...p,
-      // If photo url is a huge multi-megabyte base64, ensure safety
-      url: p.url || '',
-    }));
+    sanitized.polaroids = await Promise.all(
+      sanitized.polaroids.map(async (polaroid: any) => {
+        if (polaroid.url && polaroid.url.startsWith('data:image')) {
+          const compressed = await compressBase64Image(polaroid.url, 500, 0.6);
+          return { ...polaroid, url: compressed };
+        }
+        return polaroid;
+      })
+    );
   }
 
-  // Remove undefined fields which Firestore rejects
+  // 2. Handle heavy audio/video base64 files
+  // If base64 audio/video exceeds 250KB, strip large base64 from cloud doc to prevent exceeding 1MB
+  if (sanitized.introMusicAudioUrl && sanitized.introMusicAudioUrl.startsWith('data:') && sanitized.introMusicAudioUrl.length > 250000) {
+    sanitized.introMusicAudioUrl = '';
+  }
+  if (sanitized.musicAudioUrl && sanitized.musicAudioUrl.startsWith('data:') && sanitized.musicAudioUrl.length > 250000) {
+    sanitized.musicAudioUrl = '';
+  }
+  if (sanitized.celebrationVideoUrl && sanitized.celebrationVideoUrl.startsWith('data:') && sanitized.celebrationVideoUrl.length > 300000) {
+    sanitized.celebrationVideoUrl = '';
+  }
+  if (sanitized.surpriseBoxMediaUrl && sanitized.surpriseBoxMediaUrl.startsWith('data:') && sanitized.surpriseBoxMediaUrl.length > 300000) {
+    sanitized.surpriseBoxMediaUrl = '';
+  }
+
+  // 3. Remove undefined properties which Firestore rejects
   Object.keys(sanitized).forEach((key) => {
     if (sanitized[key] === undefined) {
       delete sanitized[key];
@@ -70,59 +95,80 @@ function sanitizeConfigForFirestore(config: BirthdayConfig): Record<string, any>
   return sanitized;
 }
 
+export interface CloudSyncResult {
+  success: boolean;
+  message: string;
+}
+
 /**
  * Saves the customized birthday configuration permanently to Google Cloud Firestore.
- * This guarantees that ANY visitor from ANY IP, device, browser, or custom domain
- * (e.g. www.bunnypatel.com) immediately sees the saved changes!
+ * Tries the named database first, then falls back to default database.
  */
-export async function saveConfigToFirestore(config: BirthdayConfig): Promise<boolean> {
+export async function saveConfigToFirestore(config: BirthdayConfig): Promise<CloudSyncResult> {
+  const { named, defaultDb } = getFirebaseDatabases();
+  const dbsToTry = [named, defaultDb].filter(Boolean) as Firestore[];
+
+  if (dbsToTry.length === 0) {
+    return { success: false, message: 'Firebase initialization failed' };
+  }
+
   try {
-    const db = getDb();
-    if (!db) return false;
+    const sanitizedData = await prepareConfigForFirestore(config);
+    const payload = {
+      config: sanitizedData,
+      updatedAt: new Date().toISOString(),
+      version: 'v5.1',
+    };
 
-    const docRef = doc(db, CONFIG_COLLECTION, CONFIG_DOC_ID);
-    const sanitizedData = sanitizeConfigForFirestore(config);
+    let lastError: any = null;
+    for (const db of dbsToTry) {
+      try {
+        const docRef = doc(db, CONFIG_COLLECTION, CONFIG_DOC_ID);
+        await setDoc(docRef, payload, { merge: true });
+        console.log('✅ Configuration successfully persisted to Cloud Firestore for all visitors!');
+        return {
+          success: true,
+          message: 'Saved to Cloud Firestore! All visitors on www.bunnypatel.com will see this live.',
+        };
+      } catch (err) {
+        lastError = err;
+        console.warn('Attempt to save to DB failed, trying fallback if available...', err);
+      }
+    }
 
-    await setDoc(
-      docRef,
-      {
-        config: sanitizedData,
-        updatedAt: new Date().toISOString(),
-        version: 'v5',
-      },
-      { merge: true }
-    );
-
-    console.log('✅ Configuration successfully persisted to Cloud Firestore for all visitors!');
-    return true;
-  } catch (err) {
+    const errStr = lastError ? (lastError.message || String(lastError)) : 'Unknown error';
+    return { success: false, message: `Cloud save error: ${errStr}` };
+  } catch (err: any) {
     console.warn('⚠️ Cloud Firestore save error:', err);
-    return false;
+    return { success: false, message: err?.message || 'Failed to save to cloud' };
   }
 }
 
 /**
  * Fetches the global configuration from Google Cloud Firestore.
- * Loads seamlessly on all visitors' devices.
+ * Loads seamlessly on all visitors' devices and browsers.
  */
 export async function loadConfigFromFirestore(): Promise<BirthdayConfig | null> {
-  try {
-    const db = getDb();
-    if (!db) return null;
+  const { named, defaultDb } = getFirebaseDatabases();
+  const dbsToTry = [named, defaultDb].filter(Boolean) as Firestore[];
 
-    const docRef = doc(db, CONFIG_COLLECTION, CONFIG_DOC_ID);
-    const docSnap = await getDoc(docRef);
+  for (const db of dbsToTry) {
+    try {
+      const docRef = doc(db, CONFIG_COLLECTION, CONFIG_DOC_ID);
+      const docSnap = await getDoc(docRef);
 
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      if (data && data.config && data.config.recipientName) {
-        console.log('🌐 Loaded global live config from Cloud Firestore!');
-        return data.config as BirthdayConfig;
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data && data.config && data.config.recipientName) {
+          console.log('🌐 Loaded global live config from Cloud Firestore!');
+          return data.config as BirthdayConfig;
+        }
       }
+    } catch (err) {
+      console.warn('DB load attempt failed, trying fallback...', err);
     }
-  } catch (err) {
-    console.warn('⚠️ Cloud Firestore load error:', err);
   }
+
   return null;
 }
 
@@ -133,11 +179,12 @@ export async function loadConfigFromFirestore(): Promise<BirthdayConfig | null> 
 export function subscribeToFirestoreConfig(
   onUpdate: (config: BirthdayConfig) => void
 ): (() => void) | null {
-  try {
-    const db = getDb();
-    if (!db) return null;
+  const { named, defaultDb } = getFirebaseDatabases();
+  const targetDb = named || defaultDb;
+  if (!targetDb) return null;
 
-    const docRef = doc(db, CONFIG_COLLECTION, CONFIG_DOC_ID);
+  try {
+    const docRef = doc(targetDb, CONFIG_COLLECTION, CONFIG_DOC_ID);
     const unsubscribe = onSnapshot(
       docRef,
       (docSnap) => {

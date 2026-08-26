@@ -3,6 +3,7 @@ import {
   saveConfigToFirestore,
   loadConfigFromFirestore,
   subscribeToFirestoreConfig,
+  CloudSyncResult,
 } from '../services/firestoreService';
 
 export const DEFAULT_BIRTHDAY_CONFIG: BirthdayConfig = {
@@ -435,28 +436,22 @@ export async function initPersistentStorage(onLoaded: (config: BirthdayConfig) =
   }
 }
 
+export type { CloudSyncResult };
+
 /**
- * Saves the configuration permanently:
- * 1. Cloud Firestore (so ALL visitors on any domain like www.bunnypatel.com immediately see it)
- * 2. Express Server (/api/config)
- * 3. IndexedDB (for high-capacity local offline store)
- * 4. localStorage (for immediate fast synchronous boot)
+ * Asynchronously saves the configuration and reports Cloud Sync result:
  */
-export function saveConfig(config: BirthdayConfig) {
-  // 1. Save globally to Cloud Firestore for all worldwide visitors
-  saveConfigToFirestore(config);
+export async function saveConfigAsync(config: BirthdayConfig): Promise<CloudSyncResult> {
+  // 1. Save to high-capacity IndexedDB
+  saveToIndexedDB(config);
 
   // 2. Save to central Express server
   saveConfigToServer(config);
 
-  // 3. Save to high-capacity IndexedDB
-  saveToIndexedDB(config);
-
-  // 4. Save to localStorage (with fallback if media base64 is too large)
+  // 3. Save to localStorage
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-  } catch (e) {
-    console.warn('localStorage quota exceeded. Saving lightweight copy to localStorage while full copy is safe in Firestore and IndexedDB.');
+  } catch {
     try {
       const lightweight = {
         ...config,
@@ -467,6 +462,20 @@ export function saveConfig(config: BirthdayConfig) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(lightweight));
     } catch {}
   }
+
+  // 4. Save globally to Cloud Firestore for all worldwide visitors
+  return await saveConfigToFirestore(config);
+}
+
+/**
+ * Saves the configuration permanently:
+ * 1. Cloud Firestore (so ALL visitors on any domain like www.bunnypatel.com immediately see it)
+ * 2. Express Server (/api/config)
+ * 3. IndexedDB (for high-capacity local offline store)
+ * 4. localStorage (for immediate fast synchronous boot)
+ */
+export function saveConfig(config: BirthdayConfig) {
+  saveConfigAsync(config);
 }
 
 export function generateShareUrl(config: BirthdayConfig): string {

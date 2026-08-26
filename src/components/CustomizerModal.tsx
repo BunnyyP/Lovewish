@@ -45,7 +45,7 @@ import {
   Edit3,
 } from 'lucide-react';
 import { BirthdayConfig, PolaroidPhoto, LoveReason, LoveCoupon, ThemeType } from '../types';
-import { saveConfig, generateShareUrl, DEFAULT_BIRTHDAY_CONFIG } from '../utils/storage';
+import { saveConfig, saveConfigAsync, generateShareUrl, DEFAULT_BIRTHDAY_CONFIG } from '../utils/storage';
 import { sound } from '../utils/audio';
 import { extractYouTubeId, dataUrlToBlobUrl } from '../utils/media';
 import { CelebrationVideoModal } from './CelebrationVideoModal';
@@ -68,6 +68,8 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
   >('profile');
   const [copied, setCopied] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isTestingAudio, setIsTestingAudio] = useState(false);
   const [isTestingIntro, setIsTestingIntro] = useState(false);
   const [introCountdown, setIntroCountdown] = useState<number | null>(null);
@@ -188,7 +190,7 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (isTestingAudio) {
       sound.stopBackgroundMusic();
       setIsTestingAudio(false);
@@ -199,14 +201,40 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
       setIntroCountdown(null);
       if (introTimerIntervalRef.current) clearInterval(introTimerIntervalRef.current);
     }
-    saveConfig(formData);
-    onSave(formData);
-    sound.playSparkleChime();
-    setSaveSuccess(true);
-    setTimeout(() => {
-      setSaveSuccess(false);
-      onClose();
-    }, 1000);
+
+    setIsSaving(true);
+    setCloudSyncStatus(null);
+
+    try {
+      const syncRes = await saveConfigAsync(formData);
+      onSave(formData);
+      sound.playSparkleChime();
+      setSaveSuccess(true);
+
+      if (syncRes.success) {
+        setCloudSyncStatus({
+          type: 'success',
+          message: 'Saved & Synced to Cloud! All visitors on www.bunnypatel.com will now see this live.',
+        });
+      } else {
+        setCloudSyncStatus({
+          type: 'error',
+          message: syncRes.message || 'Saved locally. Cloud sync pending.',
+        });
+      }
+
+      setTimeout(() => {
+        setSaveSuccess(false);
+        onClose();
+      }, 1600);
+    } catch (err: any) {
+      setCloudSyncStatus({
+        type: 'error',
+        message: err?.message || 'Error saving configuration',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleResetDefaults = () => {
@@ -3929,9 +3957,97 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
                     <span>{copied ? 'Copied!' : 'Copy'}</span>
                   </button>
                 </div>
+
+                {/* UNIVERSAL CLOUD SYNC CARD */}
+                <div className="max-w-lg mx-auto p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-stone-800 dark:to-stone-850 border border-emerald-300 dark:border-stone-700 text-left space-y-3 shadow-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold">
+                      🌐
+                    </div>
+                    <div>
+                      <h5 className="font-bold text-xs sm:text-sm text-stone-900 dark:text-stone-100">
+                        Global Cloud Sync (www.bunnypatel.com)
+                      </h5>
+                      <p className="text-[11px] text-stone-600 dark:text-stone-400">
+                        Kisi bhi IP, mobile phone ya computer par site open hone par yahi custom data dikhega.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setIsSaving(true);
+                        setCloudSyncStatus(null);
+                        const syncRes = await saveConfigAsync(formData);
+                        onSave(formData);
+                        setIsSaving(false);
+                        if (syncRes.success) {
+                          sound.playSparkleChime();
+                          setCloudSyncStatus({
+                            type: 'success',
+                            message: 'Success! Global Cloud database updated. All devices & browsers will now see this.',
+                          });
+                        } else {
+                          setCloudSyncStatus({
+                            type: 'error',
+                            message: syncRes.message,
+                          });
+                        }
+                      }}
+                      disabled={isSaving}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                    >
+                      <Database className="w-3.5 h-3.5" />
+                      <span>{isSaving ? 'Syncing to Cloud...' : '🚀 Force Cloud Sync Now'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(formData, null, 2));
+                        const downloadAnchor = document.createElement('a');
+                        downloadAnchor.setAttribute('href', dataStr);
+                        downloadAnchor.setAttribute('download', 'bunnypatel-birthday-config.json');
+                        document.body.appendChild(downloadAnchor);
+                        downloadAnchor.click();
+                        downloadAnchor.remove();
+                        sound.playSparkleChime();
+                      }}
+                      className="px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700 text-xs font-medium flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Upload className="w-3.5 h-3.5 rotate-180" />
+                      <span>Download config.json</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
+
+          {/* CLOUD SYNC LIVE STATUS BANNER */}
+          {cloudSyncStatus && (
+            <div
+              className={`px-4 py-2 text-xs flex items-center justify-between gap-2 border-t ${
+                cloudSyncStatus.type === 'success'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                  : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-medium">{cloudSyncStatus.message}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCloudSyncStatus(null)}
+                className="text-stone-500 hover:text-stone-800 dark:hover:text-stone-200"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
           {/* STICKY FOOTER WITH SAVE, PREV/NEXT & RESET */}
           <div className="p-3 sm:p-4 border-t border-rose-100 dark:border-stone-800 bg-rose-50/95 dark:bg-stone-850/95 backdrop-blur-md flex flex-wrap items-center justify-between gap-2 shrink-0">
@@ -3987,10 +4103,22 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
               <button
                 type="button"
                 onClick={handleSave}
-                className="flex items-center gap-1.5 px-4 sm:px-6 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white text-xs sm:text-sm font-semibold shadow-md cursor-pointer hover:scale-105 active:scale-95 transition-all"
+                disabled={isSaving}
+                className={`flex items-center gap-1.5 px-4 sm:px-6 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white text-xs sm:text-sm font-semibold shadow-md cursor-pointer hover:scale-105 active:scale-95 transition-all ${
+                  isSaving ? 'opacity-70 cursor-wait' : ''
+                }`}
               >
-                <Save className="w-3.5 h-3.5" />
-                <span>Save Changes</span>
+                {isSaving ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Syncing Cloud...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save & Sync All Devices</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
