@@ -260,12 +260,12 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
     setTimeout(() => setCopied(false), 3000);
   };
 
-  // Helper to upload media file directly to server streaming route
+  // Helper to upload media file directly to server streaming route (optional background sync)
   const uploadMediaToServerAsync = async (
     file: File,
     base64: string,
     type: string
-  ): Promise<string> => {
+  ): Promise<string | null> => {
     try {
       const res = await fetch('/api/upload-media', {
         method: 'POST',
@@ -283,9 +283,9 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
         }
       }
     } catch (err) {
-      console.warn('Direct upload failed, using blob/base64:', err);
+      console.warn('Direct media upload to server skipped:', err);
     }
-    return dataUrlToBlobUrl(base64);
+    return null;
   };
 
   // Intro Audio Upload Handler (MP3, WAV, M4A, OGG)
@@ -299,16 +299,16 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
     reader.onload = async (e) => {
       if (e.target?.result) {
         const base64 = e.target.result as string;
-        const initialStreamableUrl = dataUrlToBlobUrl(base64);
+        // Always store permanent base64 data URL in state
         setFormData((prev) => ({
           ...prev,
           introMusicType: 'upload',
-          introMusicAudioUrl: initialStreamableUrl,
+          introMusicAudioUrl: base64,
           introMusicAudioName: file.name,
         }));
         sound.playSparkleChime();
 
-        // Upload to server for permanent global streaming URL
+        // Background server upload for CDN / cloud hosting
         const serverUrl = await uploadMediaToServerAsync(file, base64, 'audio/mpeg');
         if (serverUrl) {
           setFormData((prev) => ({
@@ -387,11 +387,10 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
     reader.onload = async (e) => {
       if (e.target?.result) {
         const base64 = e.target.result as string;
-        const initialStreamableUrl = dataUrlToBlobUrl(base64);
         setFormData((prev) => ({
           ...prev,
           musicType: 'upload',
-          musicAudioUrl: initialStreamableUrl,
+          musicAudioUrl: base64,
           musicAudioName: file.name,
         }));
         sound.playSparkleChime();
@@ -423,11 +422,10 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
     reader.onload = async (e) => {
       if (e.target?.result) {
         const base64 = e.target.result as string;
-        const initialStreamableUrl = dataUrlToBlobUrl(base64);
         setFormData((prev) => ({
           ...prev,
           celebrationVideoType: 'upload',
-          celebrationVideoUrl: initialStreamableUrl,
+          celebrationVideoUrl: base64,
           celebrationVideoName: file.name,
         }));
         sound.playSparkleChime();
@@ -493,11 +491,10 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
     reader.onload = async (e) => {
       if (e.target?.result) {
         const base64 = e.target.result as string;
-        const initialStreamableUrl = dataUrlToBlobUrl(base64);
         setFormData((prev) => ({
           ...prev,
           surpriseBoxMediaType: 'video',
-          surpriseBoxMediaUrl: initialStreamableUrl,
+          surpriseBoxMediaUrl: base64,
           surpriseBoxMediaName: file.name,
         }));
         sound.playSparkleChime();

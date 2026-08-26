@@ -7,25 +7,30 @@ const blobUrlCache = new Map<string, string>();
 
 /**
  * Convert a base64 data: URI to a native streamable Blob URL (blob:...)
- * This is CRITICAL for HTML5 <video> and <audio> elements in browsers because data: URIs
- * do not support HTTP Byte-Range requests and will freeze/stall after ~4 seconds.
- * Blob URLs support full seekable streaming and continuous playback for full duration!
+ * This allows HTML5 <video> and <audio> elements to stream seekable media smoothly
+ * without 4-second browser base64 stalls.
  */
 export function dataUrlToBlobUrl(dataUrl: string): string {
   if (!dataUrl || typeof dataUrl !== 'string') {
     return '';
   }
 
-  // If already a streamable blob URL or external http/https URL, return directly
-  if (dataUrl.startsWith('blob:') || dataUrl.startsWith('http://') || dataUrl.startsWith('https://')) {
+  // If already an http/https or /api/ relative URL, return directly
+  if (dataUrl.startsWith('http://') || dataUrl.startsWith('https://') || dataUrl.startsWith('/api/')) {
     return dataUrl;
   }
 
+  // If already a live Blob URL
+  if (dataUrl.startsWith('blob:')) {
+    return dataUrl;
+  }
+
+  // If not a data: URL
   if (!dataUrl.startsWith('data:')) {
     return dataUrl;
   }
 
-  // Check cache first for instant retrieval
+  // Check memory cache first
   if (blobUrlCache.has(dataUrl)) {
     return blobUrlCache.get(dataUrl)!;
   }
@@ -38,53 +43,49 @@ export function dataUrlToBlobUrl(dataUrl: string): string {
     const rawData = dataUrl.substring(commaIdx + 1);
 
     const mimeMatch = meta.match(/:(.*?);/);
-    const mime = mimeMatch ? mimeMatch[1] : 'video/mp4';
+    const mime = mimeMatch ? mimeMatch[1] : (dataUrl.includes('video') ? 'video/mp4' : 'audio/mpeg');
 
-    // Clean whitespace and normalize base64
+    // Safe chunked conversion (avoids maximum call stack size / string length limits on 10MB+ files)
     const cleanBase64 = rawData.replace(/[\s\r\n]+/g, '');
-    const binary = atob(cleanBase64);
-    const len = binary.length;
-    const buffer = new Uint8Array(len);
+    const byteCharacters = atob(cleanBase64);
+    const byteArrays: Uint8Array[] = [];
+    const sliceSize = 512 * 1024; // 512KB slices
 
-    // Fast block copy
-    for (let i = 0; i < len; i++) {
-      buffer[i] = binary.charCodeAt(i);
+    for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+      const slice = byteCharacters.slice(offset, offset + sliceSize);
+      const byteNumbers = new Uint8Array(slice.length);
+      for (let i = 0; i < slice.length; i++) {
+        byteNumbers[i] = slice.charCodeAt(i);
+      }
+      byteArrays.push(byteNumbers);
     }
 
-    const blob = new Blob([buffer], { type: mime });
+    const blob = new Blob(byteArrays, { type: mime });
     const blobUrl = URL.createObjectURL(blob);
     blobUrlCache.set(dataUrl, blobUrl);
     return blobUrl;
   } catch (err) {
-    console.warn('Sync dataUrlToBlobUrl error, attempting fetch fallback:', err);
-    // Fallback: asynchronously convert via browser fetch API and cache it
-    try {
-      fetch(dataUrl)
-        .then((res) => res.blob())
-        .then((blob) => {
-          const blobUrl = URL.createObjectURL(blob);
-          blobUrlCache.set(dataUrl, blobUrl);
-        })
-        .catch(() => {});
-    } catch {}
+    console.warn('Sync atob dataUrlToBlobUrl notice, returning original dataUrl:', err);
     return dataUrl;
   }
 }
 
 /**
- * Asynchronously ensure any media URL (especially large base64 video) is converted
- * to a full hardware-accelerated streamable Blob URL.
+ * Asynchronously ensure any media URL (especially large video files) is converted
+ * to a hardware-accelerated streamable Blob URL.
  */
 export async function getStreamableMediaUrlAsync(url: string): Promise<string> {
   if (!url || typeof url !== 'string') return '';
-  if (url.startsWith('blob:') || url.startsWith('http://') || url.startsWith('https://')) {
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/api/')) {
     return url;
   }
-  if (!url.startsWith('data:')) return url;
-
+  if (url.startsWith('blob:')) {
+    return url;
+  }
   if (blobUrlCache.has(url)) {
     return blobUrlCache.get(url)!;
   }
+  if (!url.startsWith('data:')) return url;
 
   try {
     const res = await fetch(url);

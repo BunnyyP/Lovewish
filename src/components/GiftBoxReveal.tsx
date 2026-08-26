@@ -56,11 +56,14 @@ export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) 
   const hasDrive = Boolean(driveEmbedUrl);
   const hasMedia = hasImage || hasVideo || hasYouTube || hasDrive;
 
+  const [hasSurpriseVideoError, setHasSurpriseVideoError] = useState(false);
+
   const [resolvedSurpriseVideoUrl, setResolvedSurpriseVideoUrl] = useState<string>(() => {
     return hasVideo && config.surpriseBoxMediaUrl ? dataUrlToBlobUrl(config.surpriseBoxMediaUrl) : '';
   });
 
   useEffect(() => {
+    setHasSurpriseVideoError(false);
     if (!hasVideo || !config.surpriseBoxMediaUrl) {
       setResolvedSurpriseVideoUrl('');
       return;
@@ -213,21 +216,35 @@ export function GiftBoxReveal({ config, onOpenCustomizer }: GiftBoxRevealProps) 
                 {/* 2. CUSTOM UPLOADED VIDEO */}
                 {hasVideo && config.surpriseBoxMediaUrl && (
                   <div className="relative flex flex-col items-center bg-black">
-                    <video
-                      src={resolvedSurpriseVideoUrl || config.surpriseBoxMediaUrl}
-                      controls
-                      autoPlay={config.surpriseBoxAutoplayVideo !== false}
-                      playsInline
-                      loop
-                      preload="auto"
-                      onWaiting={(e) => {
-                        e.currentTarget.play().catch(() => {});
-                      }}
-                      onStalled={(e) => {
-                        e.currentTarget.play().catch(() => {});
-                      }}
-                      className="w-full max-h-[420px] rounded-t-2xl object-contain bg-black shadow-inner"
-                    />
+                    {!hasSurpriseVideoError ? (
+                      <video
+                        src={resolvedSurpriseVideoUrl || config.surpriseBoxMediaUrl}
+                        controls
+                        autoPlay={config.surpriseBoxAutoplayVideo !== false}
+                        playsInline
+                        loop
+                        preload="auto"
+                        onError={() => {
+                          console.warn('Surprise video playback error');
+                          setHasSurpriseVideoError(true);
+                        }}
+                        onWaiting={(e) => {
+                          e.currentTarget.play().catch(() => {});
+                        }}
+                        onStalled={(e) => {
+                          e.currentTarget.play().catch(() => {});
+                        }}
+                        className="w-full max-h-[420px] rounded-t-2xl object-contain bg-black shadow-inner"
+                      />
+                    ) : (
+                      <div className="w-full py-16 px-6 flex flex-col items-center justify-center bg-stone-900 text-center text-rose-200">
+                        <Gift className="w-12 h-12 text-rose-400 mb-3 animate-bounce" />
+                        <h4 className="font-serif-romantic text-lg font-bold text-rose-100">Special Surprise Message</h4>
+                        <p className="text-xs sm:text-sm text-stone-400 mt-1 max-w-sm">
+                          To replay this video, please re-upload in Customization settings.
+                        </p>
+                      </div>
+                    )}
                     {config.surpriseBoxMediaCaption && (
                       <div className="w-full p-3 bg-stone-900 border-t border-stone-800 text-center">
                         <p className="font-serif-romantic text-sm sm:text-base text-rose-300 italic">

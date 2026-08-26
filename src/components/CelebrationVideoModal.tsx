@@ -73,9 +73,12 @@ export function CelebrationVideoModal({
     ? getYouTubeEmbedUrl(config.celebrationVideoUrl || '', true, true)
     : null;
 
+  const [hasVideoError, setHasVideoError] = useState(false);
+
   const isCustomUploadOrUrl =
     !isDrive &&
     !isYouTube &&
+    !hasVideoError &&
     (config.celebrationVideoType === 'upload' || config.celebrationVideoType === 'url') &&
     Boolean(config.celebrationVideoUrl);
 
@@ -85,6 +88,7 @@ export function CelebrationVideoModal({
   });
 
   useEffect(() => {
+    setHasVideoError(false);
     if (!config.celebrationVideoUrl) {
       setResolvedBlobUrl('');
       return;
@@ -430,6 +434,10 @@ export function CelebrationVideoModal({
                 loop
                 preload="auto"
                 className="w-full h-full object-contain bg-black"
+                onError={() => {
+                  console.warn('Celebration video playback error, switching to celebration stage');
+                  setHasVideoError(true);
+                }}
                 onLoadedMetadata={(e) => {
                   const target = e.currentTarget;
                   setVideoDuration(target.duration || 0);

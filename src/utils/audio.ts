@@ -79,6 +79,7 @@ class SoundEngine {
             this.customAudio.play().catch(() => {});
           }
         });
+        audio.load();
         this.customAudio = audio;
         // If currently playing in upload/url mode, start immediately
         if (this.isMusicPlaying && (this.musicMode === 'upload' || this.musicMode === 'url')) {
@@ -391,13 +392,29 @@ class SoundEngine {
     if ((type === 'upload' || type === 'url') && options.audioUrl) {
       try {
         const streamableIntroUrl = dataUrlToBlobUrl(options.audioUrl);
-        if (!this.introCustomAudio || this.introCustomAudio.src !== streamableIntroUrl) {
-          this.introCustomAudio = new Audio(streamableIntroUrl);
-          this.introCustomAudio.preload = 'auto';
+        if (this.introCustomAudio) {
+          this.introCustomAudio.pause();
+          this.introCustomAudio.src = '';
+          this.introCustomAudio = null;
         }
-        this.introCustomAudio.currentTime = startTime;
-        this.introCustomAudio.volume = 0.9;
-        this.introCustomAudio.play().catch((err) => {
+        const audio = new Audio(streamableIntroUrl);
+        audio.preload = 'auto';
+        audio.volume = 0.9;
+        this.introCustomAudio = audio;
+
+        if (startTime > 0) {
+          audio.addEventListener(
+            'loadedmetadata',
+            () => {
+              try {
+                audio.currentTime = startTime;
+              } catch {}
+            },
+            { once: true }
+          );
+        }
+
+        audio.play().catch((err) => {
           console.warn('Intro custom audio play prevented:', err);
         });
 
@@ -407,6 +424,15 @@ class SoundEngine {
             if (onComplete) onComplete();
           }, durationSec * 1000);
           this.introTimeouts.push(tid);
+        } else {
+          audio.addEventListener(
+            'ended',
+            () => {
+              this.stopIntroMusic();
+              if (onComplete) onComplete();
+            },
+            { once: true }
+          );
         }
         return;
       } catch (err) {
