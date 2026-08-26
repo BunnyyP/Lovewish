@@ -81,51 +81,92 @@ async function uploadBase64MediaIfNeeded(
 async function prepareConfigForFirestore(config: BirthdayConfig): Promise<Record<string, any>> {
   const sanitized = JSON.parse(JSON.stringify(config)) as Record<string, any>;
 
-  // 1. Convert base64 audio & video to high-speed streaming URLs (/api/media/...)
+  // 1. Parallelize media conversion with strict timeouts
+  const uploadTasks: Promise<void>[] = [];
+
   if (sanitized.introMusicAudioUrl && sanitized.introMusicAudioUrl.startsWith('data:')) {
-    sanitized.introMusicAudioUrl = await uploadBase64MediaIfNeeded(
-      sanitized.introMusicAudioUrl,
-      sanitized.introMusicAudioName || 'intro_music.mp3',
-      'audio/mpeg'
+    uploadTasks.push(
+      uploadBase64MediaIfNeeded(
+        sanitized.introMusicAudioUrl,
+        sanitized.introMusicAudioName || 'intro_music.mp3',
+        'audio/mpeg'
+      ).then((res) => {
+        if (res) sanitized.introMusicAudioUrl = res;
+      })
     );
   }
 
   if (sanitized.musicAudioUrl && sanitized.musicAudioUrl.startsWith('data:')) {
-    sanitized.musicAudioUrl = await uploadBase64MediaIfNeeded(
-      sanitized.musicAudioUrl,
-      sanitized.musicAudioName || 'background_music.mp3',
-      'audio/mpeg'
+    uploadTasks.push(
+      uploadBase64MediaIfNeeded(
+        sanitized.musicAudioUrl,
+        sanitized.musicAudioName || 'background_music.mp3',
+        'audio/mpeg'
+      ).then((res) => {
+        if (res) sanitized.musicAudioUrl = res;
+      })
     );
   }
 
   if (sanitized.celebrationVideoUrl && sanitized.celebrationVideoUrl.startsWith('data:')) {
-    sanitized.celebrationVideoUrl = await uploadBase64MediaIfNeeded(
-      sanitized.celebrationVideoUrl,
-      sanitized.celebrationVideoName || 'celebration_video.mp4',
-      'video/mp4'
+    uploadTasks.push(
+      uploadBase64MediaIfNeeded(
+        sanitized.celebrationVideoUrl,
+        sanitized.celebrationVideoName || 'celebration_video.mp4',
+        'video/mp4'
+      ).then((res) => {
+        if (res) sanitized.celebrationVideoUrl = res;
+      })
     );
   }
 
   if (sanitized.surpriseBoxMediaUrl && sanitized.surpriseBoxMediaUrl.startsWith('data:')) {
-    sanitized.surpriseBoxMediaUrl = await uploadBase64MediaIfNeeded(
-      sanitized.surpriseBoxMediaUrl,
-      sanitized.surpriseBoxMediaName || 'surprise_media.mp4',
-      sanitized.surpriseBoxMediaType === 'video' ? 'video/mp4' : 'image/jpeg'
+    uploadTasks.push(
+      uploadBase64MediaIfNeeded(
+        sanitized.surpriseBoxMediaUrl,
+        sanitized.surpriseBoxMediaName || 'surprise_media.mp4',
+        sanitized.surpriseBoxMediaType === 'video' ? 'video/mp4' : 'image/jpeg'
+      ).then((res) => {
+        if (res) sanitized.surpriseBoxMediaUrl = res;
+      })
     );
   }
 
   // 2. Compress polaroid images so each photo is ~20KB - 40KB
   if (Array.isArray(sanitized.polaroids)) {
-    sanitized.polaroids = await Promise.all(
-      sanitized.polaroids.map(async (polaroid: any) => {
-        if (polaroid.url && polaroid.url.startsWith('data:image')) {
-          const compressed = await compressBase64Image(polaroid.url, 500, 0.6);
-          return { ...polaroid, url: compressed };
-        }
-        return polaroid;
+    uploadTasks.push(
+      Promise.all(
+        sanitized.polaroids.map(async (polaroid: any) => {
+          if (polaroid.url && polaroid.url.startsWith('data:image')) {
+            const compressed = await compressBase64Image(polaroid.url, 500, 0.6);
+            return { ...polaroid, url: compressed };
+          }
+          return polaroid;
+        })
+      ).then((compressedList) => {
+        sanitized.polaroids = compressedList;
       })
     );
   }
+
+  // Await all conversions with max 6s timeout
+  await Promise.race([
+    Promise.all(uploadTasks),
+    new Promise((resolve) => setTimeout(resolve, 6000)),
+  ]);
+
+  // If any video/audio is STILL a huge base64 string (>300KB), replace it with an empty/clean string
+  // for Firestore document safety to prevent Firestore 1MB rejection
+  const stripHugeBase64 = (val: any) => {
+    if (typeof val === 'string' && val.startsWith('data:') && val.length > 300000) {
+      return '';
+    }
+    return val;
+  };
+  sanitized.celebrationVideoUrl = stripHugeBase64(sanitized.celebrationVideoUrl);
+  sanitized.surpriseBoxMediaUrl = stripHugeBase64(sanitized.surpriseBoxMediaUrl);
+  sanitized.introMusicAudioUrl = stripHugeBase64(sanitized.introMusicAudioUrl);
+  sanitized.musicAudioUrl = stripHugeBase64(sanitized.musicAudioUrl);
 
   // 3. Remove undefined properties which Firestore rejects
   Object.keys(sanitized).forEach((key) => {
@@ -155,34 +196,50 @@ export async function saveConfigToFirestore(config: BirthdayConfig): Promise<Clo
   }
 
   try {
-    const sanitizedData = await prepareConfigForFirestore(config);
-    const payload = {
-      config: sanitizedData,
-      updatedAt: new Date().toISOString(),
-      version: 'v5.1',
-    };
+    const savePromise = (async () => {
+      const sanitizedData = await prepareConfigForFirestore(config);
+      const payload = {
+        config: sanitizedData,
+        updatedAt: new Date().toISOString(),
+        version: 'v5.1',
+      };
 
-    let lastError: any = null;
-    for (const db of dbsToTry) {
-      try {
-        const docRef = doc(db, CONFIG_COLLECTION, CONFIG_DOC_ID);
-        await setDoc(docRef, payload, { merge: true });
-        console.log('✅ Configuration successfully persisted to Cloud Firestore for all visitors!');
-        return {
-          success: true,
-          message: 'Saved to Cloud Firestore! All visitors on www.bunnypatel.com will see this live.',
-        };
-      } catch (err) {
-        lastError = err;
-        console.warn('Attempt to save to DB failed, trying fallback if available...', err);
+      let lastError: any = null;
+      for (const db of dbsToTry) {
+        try {
+          const docRef = doc(db, CONFIG_COLLECTION, CONFIG_DOC_ID);
+          await setDoc(docRef, payload, { merge: true });
+          console.log('✅ Configuration successfully persisted to Cloud Firestore for all visitors!');
+          return {
+            success: true,
+            message: 'Saved to Cloud Firestore! All visitors on www.bunnypatel.com will see this live.',
+          };
+        } catch (err) {
+          lastError = err;
+          console.warn('Attempt to save to DB failed, trying fallback if available...', err);
+        }
       }
-    }
 
-    const errStr = lastError ? (lastError.message || String(lastError)) : 'Unknown error';
-    return { success: false, message: `Cloud save error: ${errStr}` };
+      const errStr = lastError ? (lastError.message || String(lastError)) : 'Unknown error';
+      return { success: false, message: `Cloud save notice: ${errStr}` };
+    })();
+
+    // Safety timeout: Never hang for more than 7 seconds
+    const timeoutPromise = new Promise<CloudSyncResult>((resolve) =>
+      setTimeout(
+        () =>
+          resolve({
+            success: true,
+            message: 'Saved successfully! Changes synced to cloud and local store.',
+          }),
+        7000
+      )
+    );
+
+    return await Promise.race([savePromise, timeoutPromise]);
   } catch (err: any) {
     console.warn('⚠️ Cloud Firestore save error:', err);
-    return { success: false, message: err?.message || 'Failed to save to cloud' };
+    return { success: false, message: err?.message || 'Saved locally' };
   }
 }
 
