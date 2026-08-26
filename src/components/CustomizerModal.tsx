@@ -49,6 +49,7 @@ import { saveConfig, saveConfigAsync, generateShareUrl, DEFAULT_BIRTHDAY_CONFIG 
 import { sound } from '../utils/audio';
 import { extractYouTubeId, dataUrlToBlobUrl } from '../utils/media';
 import { CelebrationVideoModal } from './CelebrationVideoModal';
+import { uploadMediaToCloudStorage } from '../services/mediaCloudService';
 
 interface CustomizerModalProps {
   config: BirthdayConfig;
@@ -260,30 +261,20 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
     setTimeout(() => setCopied(false), 3000);
   };
 
-  // Helper to upload media file directly to server streaming route (optional background sync)
+  // Helper to upload media file directly to Google Cloud Firebase Storage (Global CDN for all devices)
   const uploadMediaToServerAsync = async (
     file: File,
     base64: string,
     type: string
   ): Promise<string | null> => {
     try {
-      const res = await fetch('/api/upload-media', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: file.name,
-          type: file.type || type,
-          data: base64,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.url) {
-          return data.url;
-        }
+      const result = await uploadMediaToCloudStorage(file, file.name, type);
+      if (result && result.url) {
+        console.log(`🌐 Global Media Cloud CDN URL ready: ${result.url}`);
+        return result.url;
       }
     } catch (err) {
-      console.warn('Direct media upload to server skipped:', err);
+      console.warn('Direct media upload notice:', err);
     }
     return null;
   };

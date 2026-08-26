@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 import { BirthdayConfig } from '../types';
 import { compressBase64Image } from '../utils/imageCompressor';
+import { uploadMediaToCloudStorage } from './mediaCloudService';
 
 // Firebase configuration from provisioned environment
 const firebaseConfig = {
@@ -52,7 +53,7 @@ function getFirebaseDatabases(): { named: Firestore | null; defaultDb: Firestore
 }
 
 /**
- * Helper to automatically convert large base64 media to high-speed streaming /api/media/ URLs
+ * Helper to automatically convert large base64 media to high-speed global CDN URLs via Firebase Cloud Storage
  */
 async function uploadBase64MediaIfNeeded(
   dataUrl: string | undefined,
@@ -63,24 +64,13 @@ async function uploadBase64MediaIfNeeded(
   if (!dataUrl.startsWith('data:')) return dataUrl;
 
   try {
-    const res = await fetch('/api/upload-media', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: defaultName,
-        type,
-        data: dataUrl,
-      }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success && data.url) {
-        console.log(`🚀 Converted base64 media to high-speed streamable URL: ${data.url}`);
-        return data.url;
-      }
+    const result = await uploadMediaToCloudStorage(dataUrl, defaultName, type);
+    if (result && result.url) {
+      console.log(`🚀 Converted base64 media to global Cloud CDN URL (${result.provider}): ${result.url}`);
+      return result.url;
     }
   } catch (err) {
-    console.warn('Server media upload helper notice:', err);
+    console.warn('Cloud Storage media upload notice:', err);
   }
   return dataUrl;
 }
