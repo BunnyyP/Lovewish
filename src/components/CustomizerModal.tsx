@@ -260,6 +260,34 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
     setTimeout(() => setCopied(false), 3000);
   };
 
+  // Helper to upload media file directly to server streaming route
+  const uploadMediaToServerAsync = async (
+    file: File,
+    base64: string,
+    type: string
+  ): Promise<string> => {
+    try {
+      const res = await fetch('/api/upload-media', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: file.name,
+          type: file.type || type,
+          data: base64,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.url) {
+          return data.url;
+        }
+      }
+    } catch (err) {
+      console.warn('Direct upload failed, using blob/base64:', err);
+    }
+    return dataUrlToBlobUrl(base64);
+  };
+
   // Intro Audio Upload Handler (MP3, WAV, M4A, OGG)
   const handleIntroAudioUpload = (file: File) => {
     setIntroAudioUploadError(null);
@@ -268,16 +296,26 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
       return;
     }
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       if (e.target?.result) {
         const base64 = e.target.result as string;
+        const initialStreamableUrl = dataUrlToBlobUrl(base64);
         setFormData((prev) => ({
           ...prev,
           introMusicType: 'upload',
-          introMusicAudioUrl: base64,
+          introMusicAudioUrl: initialStreamableUrl,
           introMusicAudioName: file.name,
         }));
         sound.playSparkleChime();
+
+        // Upload to server for permanent global streaming URL
+        const serverUrl = await uploadMediaToServerAsync(file, base64, 'audio/mpeg');
+        if (serverUrl) {
+          setFormData((prev) => ({
+            ...prev,
+            introMusicAudioUrl: serverUrl,
+          }));
+        }
       }
     };
     reader.onerror = () => {
@@ -346,16 +384,26 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
       return;
     }
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       if (e.target?.result) {
         const base64 = e.target.result as string;
+        const initialStreamableUrl = dataUrlToBlobUrl(base64);
         setFormData((prev) => ({
           ...prev,
           musicType: 'upload',
-          musicAudioUrl: base64,
+          musicAudioUrl: initialStreamableUrl,
           musicAudioName: file.name,
         }));
         sound.playSparkleChime();
+
+        // Upload to server for permanent global streaming URL
+        const serverUrl = await uploadMediaToServerAsync(file, base64, 'audio/mpeg');
+        if (serverUrl) {
+          setFormData((prev) => ({
+            ...prev,
+            musicAudioUrl: serverUrl,
+          }));
+        }
       }
     };
     reader.onerror = () => {
@@ -372,18 +420,26 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
       return;
     }
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       if (e.target?.result) {
         const base64 = e.target.result as string;
-        // Pre-warm conversion to streamable Blob URL so it plays seamlessly without 4-second stalls
-        dataUrlToBlobUrl(base64);
+        const initialStreamableUrl = dataUrlToBlobUrl(base64);
         setFormData((prev) => ({
           ...prev,
           celebrationVideoType: 'upload',
-          celebrationVideoUrl: base64,
+          celebrationVideoUrl: initialStreamableUrl,
           celebrationVideoName: file.name,
         }));
         sound.playSparkleChime();
+
+        // Upload to server for permanent global streaming URL
+        const serverUrl = await uploadMediaToServerAsync(file, base64, 'video/mp4');
+        if (serverUrl) {
+          setFormData((prev) => ({
+            ...prev,
+            celebrationVideoUrl: serverUrl,
+          }));
+        }
       }
     };
     reader.onerror = () => {
@@ -400,7 +456,7 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
       return;
     }
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       if (e.target?.result) {
         const base64 = e.target.result as string;
         setFormData((prev) => ({
@@ -410,6 +466,14 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
           surpriseBoxMediaName: file.name,
         }));
         sound.playSparkleChime();
+
+        const serverUrl = await uploadMediaToServerAsync(file, base64, 'image/jpeg');
+        if (serverUrl) {
+          setFormData((prev) => ({
+            ...prev,
+            surpriseBoxMediaUrl: serverUrl,
+          }));
+        }
       }
     };
     reader.onerror = () => {
@@ -426,16 +490,25 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
       return;
     }
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       if (e.target?.result) {
         const base64 = e.target.result as string;
+        const initialStreamableUrl = dataUrlToBlobUrl(base64);
         setFormData((prev) => ({
           ...prev,
           surpriseBoxMediaType: 'video',
-          surpriseBoxMediaUrl: base64,
+          surpriseBoxMediaUrl: initialStreamableUrl,
           surpriseBoxMediaName: file.name,
         }));
         sound.playSparkleChime();
+
+        const serverUrl = await uploadMediaToServerAsync(file, base64, 'video/mp4');
+        if (serverUrl) {
+          setFormData((prev) => ({
+            ...prev,
+            surpriseBoxMediaUrl: serverUrl,
+          }));
+        }
       }
     };
     reader.onerror = () => {

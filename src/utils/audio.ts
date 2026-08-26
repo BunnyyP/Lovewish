@@ -2,6 +2,7 @@
  * Web Audio API synthesizer for romantic ambient music box melody and sound effects.
  * Works seamlessly in all modern browsers without external audio assets.
  */
+import { dataUrlToBlobUrl } from './media';
 
 class SoundEngine {
   private ctx: AudioContext | null = null;
@@ -67,7 +68,9 @@ class SoundEngine {
     }
     if (url) {
       try {
-        const audio = new Audio(url);
+        const streamableUrl = dataUrlToBlobUrl(url);
+        const audio = new Audio(streamableUrl);
+        audio.preload = 'auto';
         audio.loop = true;
         audio.volume = 0.9;
         audio.addEventListener('ended', () => {
@@ -387,8 +390,10 @@ class SoundEngine {
     // Handle Custom Upload / Audio URL for Intro
     if ((type === 'upload' || type === 'url') && options.audioUrl) {
       try {
-        if (!this.introCustomAudio || this.introCustomAudio.src !== options.audioUrl) {
-          this.introCustomAudio = new Audio(options.audioUrl);
+        const streamableIntroUrl = dataUrlToBlobUrl(options.audioUrl);
+        if (!this.introCustomAudio || this.introCustomAudio.src !== streamableIntroUrl) {
+          this.introCustomAudio = new Audio(streamableIntroUrl);
+          this.introCustomAudio.preload = 'auto';
         }
         this.introCustomAudio.currentTime = startTime;
         this.introCustomAudio.volume = 0.9;

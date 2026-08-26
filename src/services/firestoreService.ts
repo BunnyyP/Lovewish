@@ -52,12 +52,79 @@ function getFirebaseDatabases(): { named: Firestore | null; defaultDb: Firestore
 }
 
 /**
+ * Helper to automatically convert large base64 media to high-speed streaming /api/media/ URLs
+ */
+async function uploadBase64MediaIfNeeded(
+  dataUrl: string | undefined,
+  defaultName: string,
+  type: string
+): Promise<string | undefined> {
+  if (!dataUrl || typeof dataUrl !== 'string') return dataUrl;
+  if (!dataUrl.startsWith('data:')) return dataUrl;
+
+  try {
+    const res = await fetch('/api/upload-media', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: defaultName,
+        type,
+        data: dataUrl,
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.url) {
+        console.log(`🚀 Converted base64 media to high-speed streamable URL: ${data.url}`);
+        return data.url;
+      }
+    }
+  } catch (err) {
+    console.warn('Server media upload helper notice:', err);
+  }
+  return dataUrl;
+}
+
+/**
  * Prepares and compresses the config object so it stays safely under Firestore's 1MB limit.
  */
 async function prepareConfigForFirestore(config: BirthdayConfig): Promise<Record<string, any>> {
   const sanitized = JSON.parse(JSON.stringify(config)) as Record<string, any>;
 
-  // 1. Compress polaroid images so each photo is ~20KB - 40KB
+  // 1. Convert base64 audio & video to high-speed streaming URLs (/api/media/...)
+  if (sanitized.introMusicAudioUrl && sanitized.introMusicAudioUrl.startsWith('data:')) {
+    sanitized.introMusicAudioUrl = await uploadBase64MediaIfNeeded(
+      sanitized.introMusicAudioUrl,
+      sanitized.introMusicAudioName || 'intro_music.mp3',
+      'audio/mpeg'
+    );
+  }
+
+  if (sanitized.musicAudioUrl && sanitized.musicAudioUrl.startsWith('data:')) {
+    sanitized.musicAudioUrl = await uploadBase64MediaIfNeeded(
+      sanitized.musicAudioUrl,
+      sanitized.musicAudioName || 'background_music.mp3',
+      'audio/mpeg'
+    );
+  }
+
+  if (sanitized.celebrationVideoUrl && sanitized.celebrationVideoUrl.startsWith('data:')) {
+    sanitized.celebrationVideoUrl = await uploadBase64MediaIfNeeded(
+      sanitized.celebrationVideoUrl,
+      sanitized.celebrationVideoName || 'celebration_video.mp4',
+      'video/mp4'
+    );
+  }
+
+  if (sanitized.surpriseBoxMediaUrl && sanitized.surpriseBoxMediaUrl.startsWith('data:')) {
+    sanitized.surpriseBoxMediaUrl = await uploadBase64MediaIfNeeded(
+      sanitized.surpriseBoxMediaUrl,
+      sanitized.surpriseBoxMediaName || 'surprise_media.mp4',
+      sanitized.surpriseBoxMediaType === 'video' ? 'video/mp4' : 'image/jpeg'
+    );
+  }
+
+  // 2. Compress polaroid images so each photo is ~20KB - 40KB
   if (Array.isArray(sanitized.polaroids)) {
     sanitized.polaroids = await Promise.all(
       sanitized.polaroids.map(async (polaroid: any) => {
@@ -68,21 +135,6 @@ async function prepareConfigForFirestore(config: BirthdayConfig): Promise<Record
         return polaroid;
       })
     );
-  }
-
-  // 2. Handle heavy audio/video base64 files
-  // If base64 audio/video exceeds 250KB, strip large base64 from cloud doc to prevent exceeding 1MB
-  if (sanitized.introMusicAudioUrl && sanitized.introMusicAudioUrl.startsWith('data:') && sanitized.introMusicAudioUrl.length > 250000) {
-    sanitized.introMusicAudioUrl = '';
-  }
-  if (sanitized.musicAudioUrl && sanitized.musicAudioUrl.startsWith('data:') && sanitized.musicAudioUrl.length > 250000) {
-    sanitized.musicAudioUrl = '';
-  }
-  if (sanitized.celebrationVideoUrl && sanitized.celebrationVideoUrl.startsWith('data:') && sanitized.celebrationVideoUrl.length > 300000) {
-    sanitized.celebrationVideoUrl = '';
-  }
-  if (sanitized.surpriseBoxMediaUrl && sanitized.surpriseBoxMediaUrl.startsWith('data:') && sanitized.surpriseBoxMediaUrl.length > 300000) {
-    sanitized.surpriseBoxMediaUrl = '';
   }
 
   // 3. Remove undefined properties which Firestore rejects
