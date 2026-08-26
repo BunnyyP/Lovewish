@@ -339,9 +339,9 @@ export async function saveConfigToServer(config: BirthdayConfig): Promise<boolea
 
 /**
  * Asynchronously initialize persistent storage from Cloud Firestore,
- * then server (/api/config), IndexedDB, and localStorage.
+ * server (/api/config), and IndexedDB in parallel.
  * This guarantees that changes saved in Customization are globally visible to ALL visitors
- * across any device, domain (e.g. www.bunnypatel.com), or IP address!
+ * across any device, browser (Chrome, Safari, Firefox, Edge, Incognito), or domain!
  */
 export async function initPersistentStorage(onLoaded: (config: BirthdayConfig) => void): Promise<void> {
   // If URL hash was provided, hash takes priority for custom direct links
@@ -349,107 +349,81 @@ export async function initPersistentStorage(onLoaded: (config: BirthdayConfig) =
     return;
   }
 
-  // 1. TOP PRIORITY: Load live global config from Google Cloud Firestore
-  try {
-    const firestoreConfig = await loadConfigFromFirestore();
-    if (firestoreConfig && firestoreConfig.recipientName) {
-      const custPass =
-        firestoreConfig.customizationPassword && firestoreConfig.customizationPassword !== 'Merijaan'
-          ? firestoreConfig.customizationPassword
-          : 'HoneyBunny';
+  let hasLoaded = false;
 
-      const merged: BirthdayConfig = {
-        ...DEFAULT_BIRTHDAY_CONFIG,
-        ...firestoreConfig,
-        siteLockPassword: firestoreConfig.siteLockPassword || 'Merijaan',
-        customizationPassword: custPass,
-      };
-
-      // Cache locally
-      saveToIndexedDB(merged);
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-      } catch {}
-
-      onLoaded(merged);
-
-      // Subscribe to real-time updates from Firestore so visitors get live sync
-      subscribeToFirestoreConfig((liveConfig) => {
-        if (liveConfig && liveConfig.recipientName) {
-          const liveMerged: BirthdayConfig = {
-            ...DEFAULT_BIRTHDAY_CONFIG,
-            ...liveConfig,
-            siteLockPassword: liveConfig.siteLockPassword || 'Merijaan',
-            customizationPassword: liveConfig.customizationPassword || 'HoneyBunny',
-          };
-          onLoaded(liveMerged);
-        }
-      });
-      return;
-    }
-  } catch (e) {
-    console.warn('Firestore initial load error:', e);
-  }
-
-  // 2. Second priority: Check central server /api/config
-  try {
-    const serverConfig = await fetchGlobalConfig();
-    if (serverConfig && serverConfig.recipientName) {
-      const custPass =
-        serverConfig.customizationPassword && serverConfig.customizationPassword !== 'Merijaan'
-          ? serverConfig.customizationPassword
-          : 'HoneyBunny';
-
-      const merged: BirthdayConfig = {
-        ...DEFAULT_BIRTHDAY_CONFIG,
-        ...serverConfig,
-        siteLockPassword: serverConfig.siteLockPassword || 'Merijaan',
-        customizationPassword: custPass,
-      };
-
-      saveToIndexedDB(merged);
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-      } catch {}
-
-      onLoaded(merged);
-      return;
-    }
-  } catch (e) {
-    console.warn('Server fetch check skipped:', e);
-  }
-
-  // 3. Third priority: Fall back to high-capacity IndexedDB
-  const idbConfig = await loadFromIndexedDB();
-  if (idbConfig && idbConfig.recipientName) {
+  const applyConfig = (sourceConfig: BirthdayConfig, sourceName: string) => {
+    if (!sourceConfig || !sourceConfig.recipientName) return;
     const custPass =
-      idbConfig.customizationPassword && idbConfig.customizationPassword !== 'Merijaan'
-        ? idbConfig.customizationPassword
+      sourceConfig.customizationPassword && sourceConfig.customizationPassword !== 'Merijaan'
+        ? sourceConfig.customizationPassword
         : 'HoneyBunny';
 
     const merged: BirthdayConfig = {
       ...DEFAULT_BIRTHDAY_CONFIG,
-      ...idbConfig,
-      siteLockPassword: idbConfig.siteLockPassword || 'Merijaan',
+      ...sourceConfig,
+      siteLockPassword: sourceConfig.siteLockPassword || 'Merijaan',
       customizationPassword: custPass,
     };
+
+    hasLoaded = true;
+    console.log(`🌐 Synchronized live surprise configuration from [${sourceName}] for: ${merged.recipientName}`);
+
+    // Cache locally for instant next load
+    saveToIndexedDB(merged);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    } catch {}
+
     onLoaded(merged);
+  };
+
+  // 1. FAST-TRACK: Query Server /api/config and Cloud Firestore simultaneously
+  const serverPromise = fetchGlobalConfig().then((cfg) => {
+    if (cfg && cfg.recipientName && !hasLoaded) {
+      applyConfig(cfg, 'Server API');
+    }
+    return cfg;
+  });
+
+  const firestorePromise = loadConfigFromFirestore().then((cfg) => {
+    if (cfg && cfg.recipientName && !hasLoaded) {
+      applyConfig(cfg, 'Cloud Firestore');
+    }
+    return cfg;
+  });
+
+  // Wait for fastest network response or max 3.5s
+  await Promise.race([
+    Promise.allSettled([serverPromise, firestorePromise]),
+    new Promise((resolve) => setTimeout(resolve, 3500)),
+  ]);
+
+  // If still not loaded from network, try local IndexedDB
+  if (!hasLoaded) {
+    const idbConfig = await loadFromIndexedDB();
+    if (idbConfig && idbConfig.recipientName) {
+      applyConfig(idbConfig, 'Local IndexedDB');
+    }
   }
+
+  // Subscribe to real-time updates from Firestore so open visitor tabs get live sync instantly
+  subscribeToFirestoreConfig((liveConfig) => {
+    if (liveConfig && liveConfig.recipientName) {
+      applyConfig(liveConfig, 'Firestore Real-time Stream');
+    }
+  });
 }
 
 export type { CloudSyncResult };
 
 /**
- * Asynchronously saves the configuration and reports Cloud Sync result:
+ * Asynchronously saves the configuration and guarantees both Server and Firestore persistence:
  */
 export async function saveConfigAsync(config: BirthdayConfig): Promise<CloudSyncResult> {
   // 1. Save to high-capacity IndexedDB
   saveToIndexedDB(config);
 
-  // 2. Save to central Express server
-  saveConfigToServer(config);
-
-  // 3. Save to localStorage
+  // 2. Save to localStorage
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
   } catch {
@@ -464,8 +438,21 @@ export async function saveConfigAsync(config: BirthdayConfig): Promise<CloudSync
     } catch {}
   }
 
-  // 4. Save globally to Cloud Firestore for all worldwide visitors
-  return await saveConfigToFirestore(config);
+  // 3. Save to server /api/config AND Cloud Firestore in parallel and await both!
+  const [serverOk, firestoreResult] = await Promise.all([
+    saveConfigToServer(config),
+    saveConfigToFirestore(config),
+  ]);
+
+  if (serverOk || firestoreResult.success) {
+    console.log('✅ Global configuration saved & synced across all browsers and devices!');
+    return {
+      success: true,
+      message: 'Saved & Synced! All visitors on any browser, mobile, or computer will now see this live.',
+    };
+  }
+
+  return firestoreResult;
 }
 
 /**

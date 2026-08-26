@@ -185,58 +185,45 @@ export interface CloudSyncResult {
 
 /**
  * Saves the customized birthday configuration permanently to Google Cloud Firestore.
- * Tries the named database first, then falls back to default database.
+ * Saves to both named and default Firestore databases in parallel for maximum reliability.
  */
 export async function saveConfigToFirestore(config: BirthdayConfig): Promise<CloudSyncResult> {
   const { named, defaultDb } = getFirebaseDatabases();
   const dbsToTry = [named, defaultDb].filter(Boolean) as Firestore[];
 
   if (dbsToTry.length === 0) {
-    return { success: false, message: 'Firebase initialization failed' };
+    return { success: false, message: 'Firebase initialization skipped (offline/unconfigured)' };
   }
 
   try {
-    const savePromise = (async () => {
-      const sanitizedData = await prepareConfigForFirestore(config);
-      const payload = {
-        config: sanitizedData,
-        updatedAt: new Date().toISOString(),
-        version: 'v5.1',
+    const sanitizedData = await prepareConfigForFirestore(config);
+    const payload = {
+      config: sanitizedData,
+      updatedAt: new Date().toISOString(),
+      version: 'v5.2',
+    };
+
+    const savePromises = dbsToTry.map(async (db, index) => {
+      const docRef = doc(db, CONFIG_COLLECTION, CONFIG_DOC_ID);
+      await setDoc(docRef, payload, { merge: true });
+      return `db_${index}_saved`;
+    });
+
+    const results = await Promise.allSettled(savePromises);
+    const hasSuccess = results.some((r) => r.status === 'fulfilled');
+
+    if (hasSuccess) {
+      console.log('✅ Configuration successfully persisted to Cloud Firestore for all visitors worldwide!');
+      return {
+        success: true,
+        message: 'Saved to Cloud Firestore! All visitors will see your updated surprise live.',
       };
+    }
 
-      let lastError: any = null;
-      for (const db of dbsToTry) {
-        try {
-          const docRef = doc(db, CONFIG_COLLECTION, CONFIG_DOC_ID);
-          await setDoc(docRef, payload, { merge: true });
-          console.log('✅ Configuration successfully persisted to Cloud Firestore for all visitors!');
-          return {
-            success: true,
-            message: 'Saved to Cloud Firestore! All visitors on www.bunnypatel.com will see this live.',
-          };
-        } catch (err) {
-          lastError = err;
-          console.warn('Attempt to save to DB failed, trying fallback if available...', err);
-        }
-      }
-
-      const errStr = lastError ? (lastError.message || String(lastError)) : 'Unknown error';
-      return { success: false, message: `Cloud save notice: ${errStr}` };
-    })();
-
-    // Safety timeout: Never hang for more than 7 seconds
-    const timeoutPromise = new Promise<CloudSyncResult>((resolve) =>
-      setTimeout(
-        () =>
-          resolve({
-            success: true,
-            message: 'Saved successfully! Changes synced to cloud and local store.',
-          }),
-        7000
-      )
-    );
-
-    return await Promise.race([savePromise, timeoutPromise]);
+    const firstRejection = results.find((r) => r.status === 'rejected') as PromiseRejectedResult | undefined;
+    const reason = firstRejection?.reason?.message || 'Firestore connection issue';
+    console.warn('Firestore save notice:', reason);
+    return { success: false, message: `Cloud notice: ${reason}` };
   } catch (err: any) {
     console.warn('⚠️ Cloud Firestore save error:', err);
     return { success: false, message: err?.message || 'Saved locally' };
@@ -245,27 +232,40 @@ export async function saveConfigToFirestore(config: BirthdayConfig): Promise<Clo
 
 /**
  * Fetches the global configuration from Google Cloud Firestore.
- * Loads seamlessly on all visitors' devices and browsers.
+ * Queries databases concurrently with a fast timeout.
  */
 export async function loadConfigFromFirestore(): Promise<BirthdayConfig | null> {
   const { named, defaultDb } = getFirebaseDatabases();
   const dbsToTry = [named, defaultDb].filter(Boolean) as Firestore[];
 
-  for (const db of dbsToTry) {
-    try {
+  if (dbsToTry.length === 0) return null;
+
+  try {
+    const fetchPromises = dbsToTry.map(async (db) => {
       const docRef = doc(db, CONFIG_COLLECTION, CONFIG_DOC_ID);
       const docSnap = await getDoc(docRef);
-
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data && data.config && data.config.recipientName) {
-          console.log('🌐 Loaded global live config from Cloud Firestore!');
           return data.config as BirthdayConfig;
         }
       }
-    } catch (err) {
-      console.warn('DB load attempt failed, trying fallback...', err);
+      return null;
+    });
+
+    // Race or evaluate results with a max 3s timeout
+    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
+    const results = await Promise.race([Promise.all(fetchPromises), timeoutPromise]);
+
+    if (Array.isArray(results)) {
+      const found = results.find((c) => c !== null);
+      if (found) {
+        console.log('🌐 Loaded global live config from Cloud Firestore!');
+        return found;
+      }
     }
+  } catch (err) {
+    console.warn('Firestore load notice:', err);
   }
 
   return null;

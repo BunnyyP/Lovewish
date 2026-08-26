@@ -195,12 +195,34 @@ async function startServer() {
     }
   });
 
+  let inMemoryConfig: any = null;
+
+  // Preload saved config from disk if available
+  if (fs.existsSync(CONFIG_FILE)) {
+    try {
+      const raw = fs.readFileSync(CONFIG_FILE, "utf-8");
+      inMemoryConfig = JSON.parse(raw);
+      console.log(`📌 Preloaded global shared configuration for: ${inMemoryConfig?.recipientName || 'Recipient'}`);
+    } catch (e) {
+      console.warn("Could not parse initial config file:", e);
+    }
+  }
+
   // GET global shared birthday config for all visitors
   app.get("/api/config", (req, res) => {
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+
     try {
+      if (inMemoryConfig && inMemoryConfig.recipientName) {
+        return res.json({ success: true, config: inMemoryConfig });
+      }
+
       if (fs.existsSync(CONFIG_FILE)) {
         const raw = fs.readFileSync(CONFIG_FILE, "utf-8");
         const parsed = JSON.parse(raw);
+        inMemoryConfig = parsed;
         return res.json({ success: true, config: parsed });
       }
       return res.json({ success: true, config: null });
@@ -218,15 +240,18 @@ async function startServer() {
         return res.status(400).json({ success: false, error: "Invalid config payload" });
       }
 
+      inMemoryConfig = config;
       fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), "utf-8");
+      console.log(`🎉 Global Birthday Config successfully saved & synced for: "${config.recipientName}"`);
+
       return res.json({
         success: true,
         message: "Customized surprise configuration saved globally for all visitors!",
         updatedAt: new Date().toISOString(),
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error saving global config:", err);
-      return res.status(500).json({ success: false, error: "Failed to save global config" });
+      return res.status(500).json({ success: false, error: err?.message || "Failed to save global config" });
     }
   });
 
