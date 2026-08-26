@@ -184,6 +184,7 @@ Happy Birthday, my love. Today, tomorrow, and every day after, I am so grateful 
   sealedWish: '',
   sealedWishDate: '',
   sealedWishesHistory: [],
+  mediaLibrary: [],
 };
 
 const STORAGE_KEY = 'romantic_birthday_surprise_config_v5';

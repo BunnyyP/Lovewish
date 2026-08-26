@@ -135,6 +135,66 @@ async function startServer() {
     }
   });
 
+  // GET all files in Media Folder library
+  app.get("/api/media-list", (req, res) => {
+    try {
+      if (!fs.existsSync(UPLOADS_DIR)) {
+        return res.json({ success: true, files: [] });
+      }
+
+      const fileNames = fs.readdirSync(UPLOADS_DIR);
+      const files = fileNames
+        .filter((fn) => !fn.startsWith("."))
+        .map((fn) => {
+          const filePath = path.join(UPLOADS_DIR, fn);
+          const stat = fs.statSync(filePath);
+          const ext = path.extname(fn).toLowerCase();
+
+          let type: "audio" | "video" | "image" = "image";
+          if ([".mp3", ".wav", ".ogg", ".m4a", ".aac"].includes(ext)) {
+            type = "audio";
+          } else if ([".mp4", ".webm", ".mov", ".m4v"].includes(ext)) {
+            type = "video";
+          }
+
+          // Strip timestamp prefix for human readable name if present
+          const cleanName = fn.replace(/^\d+_/, "");
+
+          return {
+            id: fn,
+            filename: fn,
+            name: cleanName || fn,
+            type,
+            url: `/api/media/${fn}`,
+            size: stat.size,
+            uploadedAt: stat.mtime.toISOString(),
+          };
+        })
+        .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
+
+      return res.json({ success: true, files });
+    } catch (err: any) {
+      console.error("Error listing media files:", err);
+      return res.status(500).json({ success: false, error: "Failed to list media files" });
+    }
+  });
+
+  // DELETE media file from library
+  app.delete("/api/media/:filename", (req, res) => {
+    try {
+      const filename = path.basename(req.params.filename);
+      const filePath = path.join(UPLOADS_DIR, filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        return res.json({ success: true, message: "File deleted successfully" });
+      }
+      return res.status(404).json({ success: false, error: "File not found" });
+    } catch (err: any) {
+      console.error("Error deleting media file:", err);
+      return res.status(500).json({ success: false, error: "Failed to delete file" });
+    }
+  });
+
   // GET global shared birthday config for all visitors
   app.get("/api/config", (req, res) => {
     try {

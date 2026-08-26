@@ -43,6 +43,7 @@ import {
   History,
   Calendar,
   Edit3,
+  Folder,
 } from 'lucide-react';
 import { BirthdayConfig, PolaroidPhoto, LoveReason, LoveCoupon, ThemeType } from '../types';
 import { saveConfig, saveConfigAsync, generateShareUrl, DEFAULT_BIRTHDAY_CONFIG } from '../utils/storage';
@@ -50,6 +51,7 @@ import { sound } from '../utils/audio';
 import { extractYouTubeId, dataUrlToBlobUrl } from '../utils/media';
 import { CelebrationVideoModal } from './CelebrationVideoModal';
 import { uploadMediaToCloudStorage } from '../services/mediaCloudService';
+import { MediaFolderManager } from './MediaFolderManager';
 
 interface CustomizerModalProps {
   config: BirthdayConfig;
@@ -65,7 +67,7 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
   const [passwordError, setPasswordError] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    'profile' | 'theme' | 'intro-music' | 'bg-music' | 'video' | 'surprise-box' | 'photos' | 'letter' | 'reasons' | 'coupons' | 'user-activity' | 'share'
+    'profile' | 'theme' | 'media-folder' | 'intro-music' | 'bg-music' | 'video' | 'surprise-box' | 'photos' | 'letter' | 'reasons' | 'coupons' | 'user-activity' | 'share'
   >('profile');
   const [copied, setCopied] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -88,13 +90,14 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
   const prevIsOpenRef = useRef(false);
 
   const TABS: Array<{
-    id: 'profile' | 'theme' | 'intro-music' | 'bg-music' | 'video' | 'surprise-box' | 'photos' | 'letter' | 'reasons' | 'coupons' | 'user-activity' | 'share';
+    id: 'profile' | 'theme' | 'media-folder' | 'intro-music' | 'bg-music' | 'video' | 'surprise-box' | 'photos' | 'letter' | 'reasons' | 'coupons' | 'user-activity' | 'share';
     label: string;
     icon: typeof Heart;
     count?: number;
   }> = [
     { id: 'profile', label: 'Names & Dates', icon: Heart },
     { id: 'theme', label: 'Themes & Atmosphere', icon: Palette },
+    { id: 'media-folder', label: '📁 0. Media Folder (Vault)', icon: Folder, count: (formData.mediaLibrary || []).length },
     { id: 'intro-music', label: '💌 1. Intro Music & Timings', icon: Volume2 },
     { id: 'bg-music', label: '🎶 2. Background Music', icon: Music },
     { id: 'video', label: '🎂 3. Celebration Video', icon: Film },
@@ -1197,6 +1200,25 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
               </div>
             )}
 
+            {/* TAB: 0. MEDIA FOLDER & STORAGE VAULT */}
+            {activeTab === 'media-folder' && (
+              <MediaFolderManager
+                config={formData}
+                onUpdateConfig={setFormData}
+                onSelectMediaFor={(target, item) => {
+                  if (target === 'intro') {
+                    setActiveTab('intro-music');
+                  } else if (target === 'bgMusic') {
+                    setActiveTab('bg-music');
+                  } else if (target === 'celebrationVideo') {
+                    setActiveTab('video');
+                  } else if (target === 'surpriseBox') {
+                    setActiveTab('surprise-box');
+                  }
+                }}
+              />
+            )}
+
             {/* TAB: 1. INTRO MUSIC & AUTO-MUTE TIMINGS */}
             {activeTab === 'intro-music' && (
               <div className="space-y-5">
@@ -1391,6 +1413,60 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
                       {introAudioUploadError && (
                         <p className="text-xs text-rose-600 font-medium">{introAudioUploadError}</p>
                       )}
+
+                      {/* Media Folder Quick Select for Intro Audio */}
+                      <div className="pt-2 border-t border-stone-200 dark:border-stone-700 flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-semibold text-stone-600 dark:text-stone-400">
+                            📁 Media Folder Se Choose Karein:
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab('media-folder')}
+                            className="text-[11px] text-rose-600 hover:text-rose-700 font-medium flex items-center gap-1"
+                          >
+                            <Folder className="w-3 h-3" />
+                            <span>Manage Folder ({(formData.mediaLibrary || []).filter((m) => m.type === 'audio').length} Audio Files)</span>
+                          </button>
+                        </div>
+
+                        {(formData.mediaLibrary || []).filter((m) => m.type === 'audio').length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {(formData.mediaLibrary || []).filter((m) => m.type === 'audio').map((item) => {
+                              const isThisSelected = formData.introMusicAudioUrl === item.url;
+                              return (
+                                <button
+                                  key={item.id || item.url}
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData({
+                                      ...formData,
+                                      introMusicEnabled: true,
+                                      introMusicType: 'upload',
+                                      introMusicAudioUrl: item.url,
+                                      introMusicAudioName: item.name,
+                                    });
+                                    sound.playSparkleChime();
+                                  }}
+                                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 border transition-all ${
+                                    isThisSelected
+                                      ? 'bg-rose-100 dark:bg-rose-950/80 border-rose-400 text-rose-800 dark:text-rose-200 font-bold'
+                                      : 'bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:border-rose-300'
+                                  }`}
+                                >
+                                  <Music className="w-3 h-3 text-rose-500 shrink-0" />
+                                  <span className="truncate max-w-[140px]">{item.name}</span>
+                                  {isThisSelected && <Check className="w-3 h-3 text-emerald-600 shrink-0 ml-0.5" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-stone-500 italic">
+                            Media Folder mein abhi koi song nahi hai. Upar upload karein ya Media Folder tab mein upload karein.
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -2018,6 +2094,60 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
                       {audioUploadError && (
                         <p className="text-xs text-rose-600 font-medium">{audioUploadError}</p>
                       )}
+
+                      {/* Media Folder Quick Select for Background Audio */}
+                      <div className="pt-2 border-t border-stone-200 dark:border-stone-700 flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-semibold text-stone-600 dark:text-stone-400">
+                            📁 Media Folder Se Song Choose Karein:
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab('media-folder')}
+                            className="text-[11px] text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                          >
+                            <Folder className="w-3 h-3" />
+                            <span>Manage Folder ({(formData.mediaLibrary || []).filter((m) => m.type === 'audio').length} Songs)</span>
+                          </button>
+                        </div>
+
+                        {(formData.mediaLibrary || []).filter((m) => m.type === 'audio').length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {(formData.mediaLibrary || []).filter((m) => m.type === 'audio').map((item) => {
+                              const isThisSelected = formData.musicAudioUrl === item.url;
+                              return (
+                                <button
+                                  key={item.id || item.url}
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData({
+                                      ...formData,
+                                      bgMusicEnabled: true,
+                                      musicType: 'upload',
+                                      musicAudioUrl: item.url,
+                                      musicAudioName: item.name,
+                                    });
+                                    sound.playSparkleChime();
+                                  }}
+                                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 border transition-all ${
+                                    isThisSelected
+                                      ? 'bg-purple-100 dark:bg-purple-950/80 border-purple-400 text-purple-800 dark:text-purple-200 font-bold'
+                                      : 'bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:border-purple-300'
+                                  }`}
+                                >
+                                  <Music className="w-3 h-3 text-purple-500 shrink-0" />
+                                  <span className="truncate max-w-[140px]">{item.name}</span>
+                                  {isThisSelected && <Check className="w-3 h-3 text-emerald-600 shrink-0 ml-0.5" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-stone-500 italic">
+                            Media Folder mein abhi koi song nahi hai. Upar upload karein ya Media Folder tab mein upload karein.
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -2444,6 +2574,59 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
                       {videoUploadError && (
                         <p className="text-xs text-rose-600 font-medium">{videoUploadError}</p>
                       )}
+
+                      {/* Media Folder Quick Select for Celebration Video */}
+                      <div className="pt-2 border-t border-stone-200 dark:border-stone-700 flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-semibold text-stone-600 dark:text-stone-400">
+                            📁 Media Folder Se Video Choose Karein:
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab('media-folder')}
+                            className="text-[11px] text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1"
+                          >
+                            <Folder className="w-3 h-3" />
+                            <span>Manage Folder ({(formData.mediaLibrary || []).filter((m) => m.type === 'video').length} Videos)</span>
+                          </button>
+                        </div>
+
+                        {(formData.mediaLibrary || []).filter((m) => m.type === 'video').length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {(formData.mediaLibrary || []).filter((m) => m.type === 'video').map((item) => {
+                              const isThisSelected = formData.celebrationVideoUrl === item.url;
+                              return (
+                                <button
+                                  key={item.id || item.url}
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData({
+                                      ...formData,
+                                      celebrationVideoType: 'upload',
+                                      celebrationVideoUrl: item.url,
+                                      celebrationVideoName: item.name,
+                                    });
+                                    sound.playSparkleChime();
+                                  }}
+                                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 border transition-all ${
+                                    isThisSelected
+                                      ? 'bg-amber-100 dark:bg-amber-950/80 border-amber-400 text-amber-800 dark:text-amber-200 font-bold'
+                                      : 'bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:border-amber-300'
+                                  }`}
+                                >
+                                  <Film className="w-3 h-3 text-amber-500 shrink-0" />
+                                  <span className="truncate max-w-[140px]">{item.name}</span>
+                                  {isThisSelected && <Check className="w-3 h-3 text-emerald-600 shrink-0 ml-0.5" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-stone-500 italic">
+                            Media Folder mein abhi koi video nahi hai. Upar upload karein ya Media Folder tab mein upload karein.
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -2773,6 +2956,50 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
                         <p className="text-xs text-rose-600 font-medium">{surprisePhotoUploadError}</p>
                       )}
 
+                      {/* Media Folder Quick Select for Surprise Photo */}
+                      {(formData.mediaLibrary || []).filter((m) => m.type === 'image').length > 0 && (
+                        <div className="pt-2 border-t border-stone-200 dark:border-stone-700 flex flex-col gap-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-semibold text-stone-600 dark:text-stone-400">
+                              📁 Media Folder Se Photo Chunein:
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('media-folder')}
+                              className="text-[11px] text-rose-600 hover:text-rose-700 font-medium flex items-center gap-1"
+                            >
+                              <Folder className="w-3 h-3" />
+                              <span>Manage Folder</span>
+                            </button>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {(formData.mediaLibrary || []).filter((m) => m.type === 'image').map((item) => (
+                              <button
+                                key={item.id || item.url}
+                                type="button"
+                                onClick={() => {
+                                  setFormData({
+                                    ...formData,
+                                    surpriseBoxMediaType: 'image',
+                                    surpriseBoxMediaUrl: item.url,
+                                    surpriseBoxMediaName: item.name,
+                                  });
+                                  sound.playSparkleChime();
+                                }}
+                                className={`p-1.5 rounded-xl border flex items-center gap-2 transition-all ${
+                                  formData.surpriseBoxMediaUrl === item.url
+                                    ? 'bg-rose-100 border-rose-400 ring-2 ring-rose-400'
+                                    : 'bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700'
+                                }`}
+                              >
+                                <img src={item.url} alt={item.name} className="w-8 h-8 rounded-lg object-cover" />
+                                <span className="text-xs text-stone-700 dark:text-stone-300 truncate max-w-[100px]">{item.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Direct Photo URL fallback */}
                       <div className="space-y-1">
                         <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300">
@@ -2936,6 +3163,50 @@ export function CustomizerModal({ config, isOpen, onClose, onSave }: CustomizerM
 
                       {surpriseVideoUploadError && (
                         <p className="text-xs text-rose-600 font-medium">{surpriseVideoUploadError}</p>
+                      )}
+
+                      {/* Media Folder Quick Select for Surprise Video */}
+                      {(formData.mediaLibrary || []).filter((m) => m.type === 'video').length > 0 && (
+                        <div className="pt-2 border-t border-stone-200 dark:border-stone-700 flex flex-col gap-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-semibold text-stone-600 dark:text-stone-400">
+                              📁 Media Folder Se Video Chunein:
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('media-folder')}
+                              className="text-[11px] text-rose-600 hover:text-rose-700 font-medium flex items-center gap-1"
+                            >
+                              <Folder className="w-3 h-3" />
+                              <span>Manage Folder ({(formData.mediaLibrary || []).filter((m) => m.type === 'video').length} Videos)</span>
+                            </button>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {(formData.mediaLibrary || []).filter((m) => m.type === 'video').map((item) => (
+                              <button
+                                key={item.id || item.url}
+                                type="button"
+                                onClick={() => {
+                                  setFormData({
+                                    ...formData,
+                                    surpriseBoxMediaType: 'video',
+                                    surpriseBoxMediaUrl: item.url,
+                                    surpriseBoxMediaName: item.name,
+                                  });
+                                  sound.playSparkleChime();
+                                }}
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 border transition-all ${
+                                  formData.surpriseBoxMediaUrl === item.url
+                                    ? 'bg-rose-100 border-rose-400 text-rose-800 font-bold'
+                                    : 'bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300'
+                                }`}
+                              >
+                                <Film className="w-3 h-3 text-rose-500 shrink-0" />
+                                <span className="truncate max-w-[130px]">{item.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       )}
 
                       {/* Direct Video URL input */}

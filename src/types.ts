@@ -41,6 +41,16 @@ export type ThemeType =
   | 'peach';
 
 
+export interface MediaLibraryItem {
+  id: string;
+  name: string;
+  type: 'audio' | 'video' | 'image';
+  mimeType?: string;
+  url: string;
+  size?: number;
+  uploadedAt: string;
+}
+
 export interface BirthdayConfig {
   siteLockEnabled?: boolean;
   siteLockPassword?: string;
@@ -100,6 +110,9 @@ export interface BirthdayConfig {
   surpriseBoxMediaCaption?: string;
   surpriseBoxYoutubeUrl?: string;
   surpriseBoxAutoplayVideo?: boolean;
+
+  // Media Library / Vault (Stored Audio/Video/Images)
+  mediaLibrary?: MediaLibraryItem[];
 
   // User Sealed Wish & Activity Tracking
   sealedWish?: string;
